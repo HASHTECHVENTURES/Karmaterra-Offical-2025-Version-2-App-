@@ -1,73 +1,179 @@
-# Welcome to your Lovable project
+# Karma Terra Skin Guide
 
-## Project info
+A comprehensive skincare and haircare companion app with AI-powered skin analysis.
 
-**URL**: https://lovable.dev/projects/f074c877-0667-49f9-851b-111ab1b263a4
+## 🌟 Features
 
-## How can I edit this code?
+### Core Services
+- **🧠 Know Your Skin**: Learn about different skin types and characteristics
+- **💖 Know Your Hair**: Discover your hair type and care needs  
+- **🧪 Ingredients**: Comprehensive ingredient knowledge database
 
-There are several ways of editing your application.
+### AI-Powered Skin Analysis
+- **📸 Camera Integration**: Take photos directly in the app
+- **🤖 AI Analysis**: Powered by Hugging Face's dermatology model
+- **📊 Detailed Results**: Get skin type, concerns, and personalized recommendations
+- **🔄 Upload Option**: Upload existing photos for analysis
 
-**Use Lovable**
+## 🚀 Quick Start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/f074c877-0667-49f9-851b-111ab1b263a4) and start prompting.
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
 
-Changes made via Lovable will be committed automatically to this repo.
+### Frontend Setup
+```bash
+# Install dependencies
+npm install
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The frontend will be available at: `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Backend Setup (AI Analysis)
+```bash
+# Navigate to backend directory
+cd backend
 
-**Use GitHub Codespaces**
+# Install dependencies
+npm install
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Start backend server
+npm start
+```
 
-## What technologies are used for this project?
+The backend API will be available at: `http://localhost:3001`
 
-This project is built with:
+## 🤖 AI Skin Analysis Setup
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Option 1: Real AI Analysis (Recommended)
+1. Get a Hugging Face API token from [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Copy `backend/env.example` to `backend/.env`
+3. Add your token: `HUGGING_FACE_TOKEN=your_token_here`
+4. Restart the backend server
 
-## How can I deploy this project?
+### Option 2: Mock Analysis (Default)
+If no Hugging Face token is provided, the app will use realistic mock analysis results for demonstration purposes.
 
-Simply open [Lovable](https://lovable.dev/projects/f074c877-0667-49f9-851b-111ab1b263a4) and click on Share -> Publish.
+## 📱 How to Use
 
-## Can I connect a custom domain to my Lovable project?
+### Authentication
+- Enter any 4-digit PIN to login
+- Optionally provide your name for personalization
 
-Yes, you can!
+### Skin Analysis
+1. Navigate to "Skin Analyzer" from the home page
+2. Choose to use camera or upload a photo
+3. Take/select a clear photo of your skin
+4. Wait for AI analysis (usually 3-5 seconds)
+5. Review detailed results and recommendations
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Features Available
+- **Camera Capture**: Real-time camera with face detection guide
+- **Photo Upload**: Upload existing photos from your device
+- **AI Analysis**: Advanced skin texture, tone, and concern detection
+- **Personalized Recommendations**: Tailored skincare routine suggestions
+- **Results History**: View previous analyses
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 🛠️ Technology Stack
+
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development
+- **Tailwind CSS** for styling
+- **shadcn/ui** components
+- **React Router** for navigation
+
+### Backend
+- **Express.js** server
+- **Multer** for file uploads
+- **Sharp** for image processing
+- **Axios** for API calls
+- **Hugging Face API** for AI analysis
+
+### AI Model
+- **Google Derm Foundation**: Advanced dermatology AI model
+- **Image Preprocessing**: Automatic resizing and optimization
+- **Fallback System**: Mock analysis when AI is unavailable
+
+## 🔧 Development
+
+### Project Structure
+```
+KarmaTerraApp/
+├── src/                    # Frontend source code
+│   ├── components/         # Reusable UI components
+│   ├── pages/             # Application pages
+│   │   └── services/      # Service-specific pages
+│   └── App.tsx            # Main application component
+├── backend/               # Backend API server
+│   ├── server.js          # Express server
+│   ├── package.json       # Backend dependencies
+│   └── env.example        # Environment configuration
+├── public/                # Static assets
+└── package.json           # Frontend dependencies
+```
+
+### API Endpoints
+- `GET /api/health` - Health check
+- `POST /api/analyze-skin` - Skin analysis endpoint
+
+### Environment Variables
+```bash
+# Backend (.env file)
+HUGGING_FACE_TOKEN=your_token_here
+PORT=3001
+DEBUG=true
+```
+
+## 🎨 Design Features
+
+- **Modern UI**: Beautiful gradients and animations
+- **Responsive Design**: Works on mobile and desktop
+- **Accessibility**: Screen reader friendly
+- **Dark/Light Mode**: Automatic theme switching
+- **Loading States**: Smooth user experience
+
+## 🔒 Privacy & Security
+
+- **Local Processing**: Images processed locally when possible
+- **Secure Uploads**: HTTPS-only API communication
+- **No Data Storage**: Images are not permanently stored
+- **User Control**: Users can retake/upload photos anytime
+
+## 🚀 Deployment
+
+### Frontend
+```bash
+npm run build
+```
+Deploy the `dist` folder to any static hosting service.
+
+### Backend
+```bash
+cd backend
+npm start
+```
+Deploy to any Node.js hosting platform (Heroku, Vercel, etc.).
+
+## 📞 Support
+
+For issues or questions:
+- Check the [GitHub repository](https://github.com/HASHTECHVENTURES/karma-terra-skin-guide-24)
+- Review the API documentation
+- Test the health endpoint: `http://localhost:3001/api/health`
+
+## 🎯 Future Enhancements
+
+- [ ] Hair analysis AI integration
+- [ ] Product recommendation engine
+- [ ] Progress tracking over time
+- [ ] Social features and sharing
+- [ ] Advanced skin condition detection
+- [ ] Multi-language support
+
+---
+
+**Built with ❤️ by HashTech Ventures**
