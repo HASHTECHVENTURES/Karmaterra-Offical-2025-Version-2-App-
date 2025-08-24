@@ -1,7 +1,7 @@
 {
   "name": "karma-terra-backend",
   "version": "1.0.0",
-  "description": "Backend API for Karma Terra Skin Guide AI Analysis",
+  "description": "Backend API for Karma Terra Skin Guide",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,14 +11,13 @@
     "express": "^4.18.2",
     "cors": "^2.8.5",
     "multer": "^1.4.5-lts.1",
-    "axios": "^1.6.0",
-    "dotenv": "^16.3.1",
-    "sharp": "^0.32.6"
+    "sharp": "^0.32.6",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["skin-analysis", "ai", "dermatology", "karma-terra"],
+  "keywords": ["skin-analysis", "karma-terra"],
   "author": "HashTech Ventures",
   "license": "MIT"
 }

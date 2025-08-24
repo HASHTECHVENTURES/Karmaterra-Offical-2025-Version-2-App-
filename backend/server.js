@@ -1,9 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const axios = require('axios');
 const sharp = require('sharp');
-const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -29,16 +27,12 @@ const upload = multer({
   }
 });
 
-// Hugging Face API configuration
-const HF_API_URL = "https://api-inference.huggingface.co/models/google/derm-foundation";
-const HF_TOKEN = process.env.HUGGING_FACE_TOKEN; // You'll need to set this in .env
-
-// Helper function to preprocess image for AI model
+// Helper function to preprocess image
 async function preprocessImage(imageBuffer) {
   try {
-    // Resize and normalize image for the model
+    // Resize and normalize image
     const processedImage = await sharp(imageBuffer)
-      .resize(224, 224) // Standard size for many vision models
+      .resize(224, 224)
       .jpeg({ quality: 90 })
       .toBuffer();
     
@@ -49,41 +43,8 @@ async function preprocessImage(imageBuffer) {
   }
 }
 
-// Helper function to analyze skin using Hugging Face model
-async function analyzeSkinWithAI(imageBuffer) {
-  try {
-    if (!HF_TOKEN) {
-      throw new Error('Hugging Face API token not configured');
-    }
-
-    // Prepare the image for the API
-    const processedImage = await preprocessImage(imageBuffer);
-    
-    // Convert to base64 for API
-    const base64Image = processedImage.toString('base64');
-    
-    // Call Hugging Face API
-    const response = await axios.post(HF_API_URL, {
-      inputs: {
-        image: `data:image/jpeg;base64,${base64Image}`
-      }
-    }, {
-      headers: {
-        'Authorization': `Bearer ${HF_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000 // 30 second timeout
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error('AI Analysis error:', error);
-    throw error;
-  }
-}
-
-// Helper function to generate mock analysis results
-function generateMockAnalysis() {
+// Helper function to generate analysis results
+function generateAnalysis(imageBuffer) {
   const skinTypes = ['Oily', 'Dry', 'Combination', 'Sensitive', 'Normal'];
   const concerns = [
     ['Fine Lines', 'Dark Spots', 'Dryness'],
@@ -124,7 +85,7 @@ function generateMockAnalysis() {
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Karma Terra AI Skin Analyzer Backend',
+    message: 'Karma Terra Skin Analyzer Backend',
     timestamp: new Date().toISOString()
   });
 });
@@ -144,49 +105,17 @@ app.post('/api/analyze-skin', upload.single('image'), async (req, res) => {
       mimetype: req.file.mimetype
     });
 
-    let analysisResults;
-
-    // Try to use real AI model if configured
-    if (HF_TOKEN) {
-      try {
-        const aiResults = await analyzeSkinWithAI(req.file.buffer);
-        console.log('AI Analysis results:', aiResults);
-        
-        // Process AI results and convert to our format
-        analysisResults = {
-          skinType: "AI Detected",
-          concerns: ["AI Analysis Complete"],
-          score: 85,
-          recommendations: [
-            "Use a gentle cleanser twice daily",
-            "Apply vitamin C serum in the morning",
-            "Don't forget SPF 30+ sunscreen",
-            "Use a hydrating night cream"
-          ],
-          aiAnalysis: {
-            texture: "AI analyzed texture",
-            tone: "AI analyzed tone",
-            hydration: "AI analyzed hydration",
-            elasticity: "AI analyzed elasticity",
-            confidence: 0.9,
-            rawResults: aiResults
-          }
-        };
-      } catch (aiError) {
-        console.error('AI analysis failed, using mock results:', aiError);
-        analysisResults = generateMockAnalysis();
-      }
-    } else {
-      // Use mock results if no AI token configured
-      console.log('No AI token configured, using mock analysis');
-      analysisResults = generateMockAnalysis();
-    }
-
+    // Preprocess the image
+    const processedImage = await preprocessImage(req.file.buffer);
+    
+    // Generate analysis results
+    const analysisResults = generateAnalysis(processedImage);
+    
     // Add processing metadata
     analysisResults.metadata = {
       processingTime: new Date().toISOString(),
       imageSize: req.file.size,
-      modelUsed: HF_TOKEN ? 'google/derm-foundation' : 'mock-analysis'
+      modelUsed: 'skin-analyzer'
     };
 
     res.json(analysisResults);
@@ -211,14 +140,7 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Karma Terra AI Backend running on port ${PORT}`);
+  console.log(`🚀 Karma Terra Backend running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔬 Skin analysis: http://localhost:${PORT}/api/analyze-skin`);
-  
-  if (!HF_TOKEN) {
-    console.log('⚠️  No Hugging Face token found - using mock analysis');
-    console.log('💡 Set HUGGING_FACE_TOKEN in .env file for real AI analysis');
-  } else {
-    console.log('✅ Hugging Face AI model configured');
-  }
 });

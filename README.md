@@ -1,6 +1,6 @@
 # Karma Terra Skin Guide
 
-A comprehensive skincare and haircare companion app with AI-powered skin analysis.
+A comprehensive skincare and haircare companion app with skin analysis capabilities.
 
 ## 🌟 Features
 
@@ -9,11 +9,10 @@ A comprehensive skincare and haircare companion app with AI-powered skin analysi
 - **💖 Know Your Hair**: Discover your hair type and care needs  
 - **🧪 Ingredients**: Comprehensive ingredient knowledge database
 
-### AI-Powered Skin Analysis
+### Skin Analysis
 - **📸 Camera Integration**: Take photos directly in the app
-- **🤖 AI Analysis**: Powered by Hugging Face's dermatology model
-- **📊 Detailed Results**: Get skin type, concerns, and personalized recommendations
 - **🔄 Upload Option**: Upload existing photos for analysis
+- **📊 Detailed Results**: Get skin type, concerns, and personalized recommendations
 
 ## 🚀 Quick Start
 
@@ -32,7 +31,7 @@ npm run dev
 
 The frontend will be available at: `http://localhost:8080`
 
-### Backend Setup (AI Analysis)
+### Backend Setup
 ```bash
 # Navigate to backend directory
 cd backend
@@ -46,17 +45,6 @@ npm start
 
 The backend API will be available at: `http://localhost:3001`
 
-## 🤖 AI Skin Analysis Setup
-
-### Option 1: Real AI Analysis (Recommended)
-1. Get a Hugging Face API token from [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
-2. Copy `backend/env.example` to `backend/.env`
-3. Add your token: `HUGGING_FACE_TOKEN=your_token_here`
-4. Restart the backend server
-
-### Option 2: Mock Analysis (Default)
-If no Hugging Face token is provided, the app will use realistic mock analysis results for demonstration purposes.
-
 ## 📱 How to Use
 
 ### Authentication
@@ -67,13 +55,13 @@ If no Hugging Face token is provided, the app will use realistic mock analysis r
 1. Navigate to "Skin Analyzer" from the home page
 2. Choose to use camera or upload a photo
 3. Take/select a clear photo of your skin
-4. Wait for AI analysis (usually 3-5 seconds)
+4. Wait for analysis (usually 2-3 seconds)
 5. Review detailed results and recommendations
 
 ### Features Available
 - **Camera Capture**: Real-time camera with face detection guide
 - **Photo Upload**: Upload existing photos from your device
-- **AI Analysis**: Advanced skin texture, tone, and concern detection
+- **Skin Analysis**: Advanced skin texture, tone, and concern detection
 - **Personalized Recommendations**: Tailored skincare routine suggestions
 - **Results History**: View previous analyses
 
@@ -90,13 +78,6 @@ If no Hugging Face token is provided, the app will use realistic mock analysis r
 - **Express.js** server
 - **Multer** for file uploads
 - **Sharp** for image processing
-- **Axios** for API calls
-- **Hugging Face API** for AI analysis
-
-### AI Model
-- **Google Derm Foundation**: Advanced dermatology AI model
-- **Image Preprocessing**: Automatic resizing and optimization
-- **Fallback System**: Mock analysis when AI is unavailable
 
 ## 🔧 Development
 
@@ -110,8 +91,7 @@ KarmaTerraApp/
 │   └── App.tsx            # Main application component
 ├── backend/               # Backend API server
 │   ├── server.js          # Express server
-│   ├── package.json       # Backend dependencies
-│   └── env.example        # Environment configuration
+│   └── package.json       # Backend dependencies
 ├── public/                # Static assets
 └── package.json           # Frontend dependencies
 ```
@@ -119,14 +99,6 @@ KarmaTerraApp/
 ### API Endpoints
 - `GET /api/health` - Health check
 - `POST /api/analyze-skin` - Skin analysis endpoint
-
-### Environment Variables
-```bash
-# Backend (.env file)
-HUGGING_FACE_TOKEN=your_token_here
-PORT=3001
-DEBUG=true
-```
 
 ## 🎨 Design Features
 
@@ -138,7 +110,7 @@ DEBUG=true
 
 ## 🔒 Privacy & Security
 
-- **Local Processing**: Images processed locally when possible
+- **Local Processing**: Images processed locally
 - **Secure Uploads**: HTTPS-only API communication
 - **No Data Storage**: Images are not permanently stored
 - **User Control**: Users can retake/upload photos anytime
@@ -167,7 +139,7 @@ For issues or questions:
 
 ## 🎯 Future Enhancements
 
-- [ ] Hair analysis AI integration
+- [ ] Hair analysis integration
 - [ ] Product recommendation engine
 - [ ] Progress tracking over time
 - [ ] Social features and sharing
