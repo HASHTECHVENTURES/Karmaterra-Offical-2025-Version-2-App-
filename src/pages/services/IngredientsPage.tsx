@@ -84,7 +84,7 @@ const IngredientsPage = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-bold">Knowledge Ingredients</h1>
+          <h1 className="text-xl font-bold">Ingredients</h1>
         </div>
       </div>
 

@@ -10,11 +10,8 @@ import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
 import ProfilePage from "./pages/ProfilePage";
 import KnowYourSkinPage from "./pages/services/KnowYourSkinPage";
-import CheckThatPage from "./pages/services/CheckThatPage";
-import UnderstandSkinPage from "./pages/services/UnderstandSkinPage";
+import KnowYourHairPage from "./pages/services/KnowYourHairPage";
 import IngredientsPage from "./pages/services/IngredientsPage";
-import SkinRitualPage from "./pages/services/SkinRitualPage";
-import TalkToUsPage from "./pages/services/TalkToUsPage";
 import SkinAnalyzerPage from "./pages/SkinAnalyzerPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
 import NotFound from "./pages/NotFound";
@@ -77,11 +74,8 @@ const App = () => {
               <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <AuthPage />} />
               <Route path="/know-your-skin" element={user ? <KnowYourSkinPage /> : <AuthPage />} />
-              <Route path="/check-that" element={user ? <CheckThatPage /> : <AuthPage />} />
-              <Route path="/understand-skin" element={user ? <UnderstandSkinPage /> : <AuthPage />} />
+              <Route path="/know-your-hair" element={user ? <KnowYourHairPage /> : <AuthPage />} />
               <Route path="/ingredients" element={user ? <IngredientsPage /> : <AuthPage />} />
-              <Route path="/skin-ritual" element={user ? <SkinRitualPage /> : <AuthPage />} />
-              <Route path="/talk-to-us" element={user ? <TalkToUsPage /> : <AuthPage />} />
               <Route path="/skin-analyzer" element={user ? <SkinAnalyzerPage /> : <AuthPage />} />
               <Route path="/blog/:id" element={user ? <BlogDetailPage /> : <AuthPage />} />
               <Route path="*" element={<NotFound />} />

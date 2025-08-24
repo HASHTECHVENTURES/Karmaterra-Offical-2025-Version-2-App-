@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Brain, Search, BookOpen, FlaskConical, Calendar, MessageCircle } from "lucide-react";
+import { Brain, Heart, FlaskConical } from "lucide-react";
 
 export const ServiceGrid = () => {
   const navigate = useNavigate();
@@ -14,39 +14,18 @@ export const ServiceGrid = () => {
       color: "from-blue-500 to-blue-600"
     },
     {
-      icon: Search,
-      title: "How to Check That",
-      description: "Skin assessment techniques",
-      path: "/check-that",
-      color: "from-green-500 to-green-600"
-    },
-    {
-      icon: BookOpen,
-      title: "Understand Skin",
-      description: "Skin science and structure",
-      path: "/understand-skin",
+      icon: Heart,
+      title: "Know Your Hair",
+      description: "Discover your hair type and needs",
+      path: "/know-your-hair",
       color: "from-purple-500 to-purple-600"
     },
     {
       icon: FlaskConical,
-      title: "Knowledge Ingredients",
+      title: "Ingredients",
       description: "Learn about skincare ingredients",
       path: "/ingredients",
       color: "from-orange-500 to-orange-600"
-    },
-    {
-      icon: Calendar,
-      title: "Your Skin Ritual",
-      description: "Build your daily routine",
-      path: "/skin-ritual",
-      color: "from-pink-500 to-pink-600"
-    },
-    {
-      icon: MessageCircle,
-      title: "Talk to Us",
-      description: "Chat with AI skincare coach",
-      path: "/talk-to-us",
-      color: "from-karma-gold to-accent"
     }
   ];
 
