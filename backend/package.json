@@ -1,7 +1,7 @@
 {
-  "name": "karma-terra-backend",
+  "name": "karmaterra-app-backend",
   "version": "1.0.0",
-  "description": "Backend API for Karma Terra Skin Guide",
+  "description": "Backend API for KARMATERRA APP",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,7 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["skin-analysis", "karma-terra"],
+  "keywords": ["skin-analysis", "karmaterra-app"],
   "author": "HashTech Ventures",
   "license": "MIT"
 }

@@ -1,4 +1,4 @@
-# Karma Terra Skin Guide
+# KARMATERRA APP
 
 A comprehensive skincare and haircare companion app with skin analysis capabilities.
 
@@ -83,7 +83,7 @@ The backend API will be available at: `http://localhost:3001`
 
 ### Project Structure
 ```
-KarmaTerraApp/
+KARMATERRA-APP/
 ├── src/                    # Frontend source code
 │   ├── components/         # Reusable UI components
 │   ├── pages/             # Application pages
@@ -133,7 +133,7 @@ Deploy to any Node.js hosting platform (Heroku, Vercel, etc.).
 ## 📞 Support
 
 For issues or questions:
-- Check the [GitHub repository](https://github.com/HASHTECHVENTURES/karma-terra-skin-guide-24)
+- Check the [GitHub repository](https://github.com/HASHTECHVENTURES/KARMATERRA-OFFICAL-2025-APP)
 - Review the API documentation
 - Test the health endpoint: `http://localhost:3001/api/health`
 
