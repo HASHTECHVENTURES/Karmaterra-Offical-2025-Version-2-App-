@@ -154,7 +154,7 @@ const SkinAnalyzerPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-karma-cream via-background to-karma-light-gold">
       {/* Header */}
-      <div className="bg-gradient-to-r from-karma-gold to-accent p-4 text-primary-foreground shadow-lg">
+      <div className="bg-gradient-to-r from-karma-gold to-accent p-4 text-primary-foreground shadow-lg safe-area-top">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
