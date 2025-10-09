@@ -9,7 +9,7 @@ export const BottomNavigation = () => {
   const isActive = (path: string) => location.pathname === path;
 
   const handleMarketplace = () => {
-    window.open("https://www.karmaterra.in/", "_blank");
+    navigate("/market");
   };
 
   return (
@@ -31,7 +31,11 @@ export const BottomNavigation = () => {
         <Button
           variant="ghost"
           onClick={handleMarketplace}
-          className="flex flex-col items-center gap-1 p-3 h-auto text-muted-foreground hover:text-karma-gold"
+          className={`flex flex-col items-center gap-1 p-3 h-auto ${
+            isActive("/market") 
+              ? "text-karma-gold bg-karma-gold/10" 
+              : "text-muted-foreground hover:text-karma-gold"
+          }`}
         >
           <ShoppingBag className="w-5 h-5" />
           <span className="text-xs font-medium">Market</span>

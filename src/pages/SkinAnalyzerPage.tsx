@@ -97,8 +97,8 @@ const SkinAnalyzerPage = () => {
       const formData = new FormData();
       formData.append('image', blob, 'skin_photo.jpg');
       
-      // Send to backend API (you'll need to implement this)
-      const apiResponse = await fetch('/api/analyze-skin', {
+      // Send to backend API
+      const apiResponse = await fetch('http://localhost:3001/api/analyze-skin', {
         method: 'POST',
         body: formData,
       });

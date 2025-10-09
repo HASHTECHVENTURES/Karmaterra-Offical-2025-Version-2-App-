@@ -1,10 +1,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ArrowLeft } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export const ProductCarousel = () => {
+  const navigate = useNavigate();
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const products = [
     {
       name: "Kumkumadi Facial Oil",
@@ -25,6 +29,52 @@ export const ProductCarousel = () => {
       link: "https://www.karmaterra.in/"
     }
   ];
+
+  const handleProductClick = (product) => {
+    setSelectedProduct(product);
+  };
+
+  const handleBackClick = () => {
+    setSelectedProduct(null);
+  };
+
+  if (selectedProduct) {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* Navigation Header */}
+        <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
+          <div className="max-w-md mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleBackClick}
+                aria-label="Go back to products"
+                title="Go back to products"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-gray-600" />
+              </button>
+              <div className="text-center">
+                <h1 className="text-xl font-bold text-gray-800">Product Details</h1>
+                <p className="text-sm text-gray-500">{selectedProduct.name}</p>
+              </div>
+              <div className="w-10" />
+            </div>
+          </div>
+        </div>
+
+        {/* Product Web View */}
+        <div className="h-screen">
+          <iframe
+            src={selectedProduct.link}
+            className="w-full h-full border-0"
+            title={selectedProduct.name}
+            allow="payment; camera; microphone; geolocation"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -57,7 +107,7 @@ export const ProductCarousel = () => {
                     <h3 className="font-semibold text-sm mb-1 leading-tight">{product.name}</h3>
                     <p className="text-muted-foreground text-xs mb-3 leading-tight">{product.description}</p>
                     <Button
-                      onClick={() => window.open(product.link, "_blank")}
+                      onClick={() => handleProductClick(product)}
                       className="w-full bg-gradient-primary hover:shadow-glow transition-all"
                       size="sm"
                     >

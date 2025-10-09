@@ -1,15 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/App";
-import { BottomNavigation } from "@/components/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
-import { Camera, User, Lock, LogOut } from "lucide-react";
+import { User, LogOut, ArrowLeft } from "lucide-react";
 
 const ProfilePage = () => {
-  const { user, updateProfile, logout } = useAuth();
+  const navigate = useNavigate();
+  const { user, updateProfile, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [pin, setPin] = useState("");
@@ -36,7 +37,7 @@ const ProfilePage = () => {
   };
 
   const handleLogout = () => {
-    logout();
+    signOut();
     toast({
       title: "Logged Out",
       description: "See you soon on your skincare journey!"
@@ -46,30 +47,36 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-karma-cream via-background to-karma-light-gold">
       {/* Header */}
-      <div className="bg-gradient-to-r from-karma-gold to-accent p-4 text-primary-foreground shadow-lg">
-        <h1 className="text-xl font-bold text-center">Profile</h1>
+      <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
+        <div className="max-w-md mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigate('/')}
+              aria-label="Go back to home"
+              title="Go back to home"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-600" />
+            </button>
+            <div className="text-center">
+              <h1 className="text-xl font-bold text-gray-800">Profile</h1>
+            </div>
+            <div className="w-10" />
+          </div>
+        </div>
       </div>
 
       {/* Content */}
-      <div className="pb-20 p-4 space-y-6">
+      <div className="p-4 space-y-6">
         {/* Profile Card */}
         <Card className="shadow-lg border-0">
           <CardHeader className="text-center pb-4">
-            <div className="relative inline-block">
-              <Avatar className="w-24 h-24 mx-auto border-4 border-karma-gold shadow-lg">
-                <AvatarImage src={user?.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-karma-gold to-accent text-primary-foreground text-2xl">
-                  {user?.name?.charAt(0) || "U"}
-                </AvatarFallback>
-              </Avatar>
-              <Button
-                size="sm"
-                className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-karma-gold hover:bg-accent"
-                onClick={() => toast({ title: "Feature Coming Soon", description: "Photo upload will be available soon" })}
-              >
-                <Camera className="w-4 h-4" />
-              </Button>
-            </div>
+            <Avatar className="w-24 h-24 mx-auto border-4 border-karma-gold shadow-lg">
+              <AvatarImage src={user?.avatar} />
+              <AvatarFallback className="bg-gradient-to-br from-karma-gold to-accent text-primary-foreground text-2xl">
+                {user?.name?.charAt(0) || "U"}
+              </AvatarFallback>
+            </Avatar>
           </CardHeader>
           
           <CardContent className="space-y-4">
@@ -135,21 +142,13 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
 
+
         {/* Settings Card */}
         <Card className="shadow-lg border-0">
           <CardHeader>
             <CardTitle className="text-lg">Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button 
-              variant="outline" 
-              className="w-full justify-start"
-              onClick={() => toast({ title: "Feature Coming Soon", description: "Privacy settings will be available soon" })}
-            >
-              <Lock className="w-4 h-4 mr-2" />
-              Privacy Settings
-            </Button>
-            
             <Button 
               variant="destructive" 
               className="w-full justify-start"
@@ -161,8 +160,6 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
       </div>
-
-      <BottomNavigation />
     </div>
   );
 };

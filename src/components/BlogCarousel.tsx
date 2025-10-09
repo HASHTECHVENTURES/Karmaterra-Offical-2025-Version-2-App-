@@ -65,26 +65,30 @@ export const BlogCarousel = () => {
             {blogPosts.map((post) => (
               <CarouselItem key={post.id} className="pl-2 basis-2/3 md:basis-1/2">
                 <Card 
-                  className="shadow-soft border-0 bg-card hover:shadow-luxury transition-all duration-300 hover:scale-105 cursor-pointer"
+                  className="shadow-soft border-0 bg-card hover:shadow-luxury transition-all duration-300 hover:scale-105 cursor-pointer relative overflow-hidden"
                   onClick={() => handleBlogClick(post.id)}
                 >
-                  <CardContent className="p-0">
-                    <div className="aspect-[4/3] rounded-t-lg overflow-hidden">
+                  <CardContent className="p-0 relative">
+                    <div className="aspect-[4/3] overflow-hidden">
                       <img 
                         src={post.image} 
                         alt={post.title}
                         className="w-full h-full object-cover"
                       />
-                    </div>
-                    <div className="p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] bg-karma-light-gold text-karma-brown px-2 py-0.5 rounded-full">
-                          {post.category}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">{post.readTime}</span>
+                      {/* Dark overlay for text readability */}
+                      <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+                      
+                      {/* Content positioned at absolute bottom */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] bg-white bg-opacity-90 text-gray-700 px-2 py-0.5 rounded-full">
+                            {post.category}
+                          </span>
+                          <span className="text-[10px] text-white opacity-90">{post.readTime}</span>
+                        </div>
+                        <h3 className="font-semibold text-sm mb-2 leading-tight text-white">{post.title}</h3>
+                        <p className="text-white text-xs leading-tight opacity-90">{post.description}</p>
                       </div>
-                      <h3 className="font-semibold text-sm mb-1 leading-tight">{post.title}</h3>
-                      <p className="text-muted-foreground text-xs leading-tight">{post.description}</p>
                     </div>
                   </CardContent>
                 </Card>
