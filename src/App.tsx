@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useState, createContext, useContext, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { storage } from "@/lib/config";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import type { User, LoginResult, AuthContextType } from "@/types";
 
 // Pages
@@ -42,14 +44,15 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('karma-terra-user');
+    // Check for stored user session using safe storage wrapper
+    const storedUser = storage.get('karma-terra-user');
     if (storedUser) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
       } catch (error) {
-        localStorage.removeItem('karma-terra-user');
+        // Invalid JSON, clear it
+        storage.remove('karma-terra-user');
       }
     }
     setLoading(false);
@@ -115,8 +118,8 @@ const App = () => {
           avatar: newProfile.avatar_url || "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
         };
 
-        // Store user in localStorage
-        localStorage.setItem('karma-terra-user', JSON.stringify(userData));
+        // Store user using safe storage wrapper
+        storage.set('karma-terra-user', JSON.stringify(userData));
         setUser(userData);
 
         return { success: true };
@@ -158,7 +161,7 @@ const App = () => {
   };
 
   const signOut = async () => {
-    localStorage.removeItem('karma-terra-user');
+    storage.remove('karma-terra-user');
     setUser(null);
   };
 
@@ -190,33 +193,35 @@ const App = () => {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthContext.Provider value={{ user, login, signOut, updateProfile }}>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Routes>
-              <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
-              <Route path="/profile" element={user ? <ProfilePage /> : <AuthPage />} />
-              <Route path="/community" element={user ? <CommunityPage /> : <AuthPage />} />
-              <Route path="/know-your-skin" element={<KnowYourSkinPage />} />
-              <Route path="/skin-analysis-results" element={user ? <EnhancedSkinAnalysisResultsPage /> : <AuthPage />} />
-              <Route path="/progress-tracking" element={user ? <ProgressTrackingPage /> : <AuthPage />} />
-              <Route path="/hair-analysis" element={user ? <HairAnalysisPage /> : <AuthPage />} />
-              <Route path="/hair-analysis-results" element={user ? <HairAnalysisResultsPage /> : <AuthPage />} />
-              <Route path="/ask-karma" element={user ? <AskKarmaPage /> : <AuthPage />} />
-              <Route path="/ingredients" element={user ? <IngredientsPage /> : <AuthPage />} />
-              <Route path="/know-your-hair" element={user ? <KnowYourHairPage /> : <AuthPage />} />
-              <Route path="/market" element={user ? <MarketPage /> : <AuthPage />} />
-              <Route path="/blogs" element={user ? <BlogsPage /> : <AuthPage />} />
-              <Route path="/blog/:id" element={user ? <BlogDetailPage /> : <AuthPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthContext.Provider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthContext.Provider value={{ user, login, signOut, updateProfile }}>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Routes>
+                <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
+                <Route path="/profile" element={user ? <ProfilePage /> : <AuthPage />} />
+                <Route path="/community" element={user ? <CommunityPage /> : <AuthPage />} />
+                <Route path="/know-your-skin" element={<KnowYourSkinPage />} />
+                <Route path="/skin-analysis-results" element={user ? <EnhancedSkinAnalysisResultsPage /> : <AuthPage />} />
+                <Route path="/progress-tracking" element={user ? <ProgressTrackingPage /> : <AuthPage />} />
+                <Route path="/hair-analysis" element={user ? <HairAnalysisPage /> : <AuthPage />} />
+                <Route path="/hair-analysis-results" element={user ? <HairAnalysisResultsPage /> : <AuthPage />} />
+                <Route path="/ask-karma" element={user ? <AskKarmaPage /> : <AuthPage />} />
+                <Route path="/ingredients" element={user ? <IngredientsPage /> : <AuthPage />} />
+                <Route path="/know-your-hair" element={user ? <KnowYourHairPage /> : <AuthPage />} />
+                <Route path="/market" element={user ? <MarketPage /> : <AuthPage />} />
+                <Route path="/blogs" element={user ? <BlogsPage /> : <AuthPage />} />
+                <Route path="/blog/:id" element={user ? <BlogDetailPage /> : <AuthPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </AuthContext.Provider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
