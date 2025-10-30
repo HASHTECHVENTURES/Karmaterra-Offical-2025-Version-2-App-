@@ -256,7 +256,7 @@ const HomePage = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 nav-safe-area">
+      <div className="flex items-center justify-between p-4 safe-area-top nav-safe-area">
         <button 
           onClick={() => setIsMenuOpen(true)}
           aria-label="Open menu"
