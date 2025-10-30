@@ -183,15 +183,15 @@ const HomePage = () => {
   const services = [
     {
       title: "Know Your Skin",
-      icon: <Star className="w-6 h-6" />,
-      bgColor: "bg-gradient-to-br from-blue-100 to-blue-200",
-      iconBg: "bg-blue-500",
-      textColor: "text-blue-700",
-      onClick: () => navigate("/skin-analysis")
+      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/ec8d32dd-cf00-4a0d-93bd-64307bab4bef-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy9lYzhkMzJkZC1jZjAwLTRhMGQtOTNiZC02NDMwN2JhYjRiZWYtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTc5NDMsImV4cCI6NjYyNTI5Mzc5NDN9.-tl5ce8D_UakU395AaLe0omfi5oXOZQkk3lKIcuFH5A" alt="Know Your Skin" className="w-6 h-6 object-contain" />,
+      bgColor: "bg-gradient-to-br from-green-100 to-green-200",
+      iconBg: "bg-green-500",
+      textColor: "text-green-700",
+      onClick: () => navigate("/know-your-skin")
     },
     {
       title: "Know Your Hair",
-      icon: <Scissors className="w-6 h-6" />,
+      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1dec4eca-3cf7-4ae8-92e6-baf368a43342-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xZGVjNGVjYS0zY2Y3LTRhZTgtOTJlNi1iYWYzNjhhNDMzNDItcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgxMjUsImV4cCI6NjY0MTA2MTgxMjV9.1TWqdqbHTJSOkyIw8EMQLpn2EPgYvXwSzHRP7odhTEw" alt="Know Your Hair" className="w-6 h-6 object-contain" />,
       bgColor: "bg-gradient-to-br from-purple-100 to-purple-200",
       iconBg: "bg-purple-500",
       textColor: "text-purple-700",
@@ -207,7 +207,7 @@ const HomePage = () => {
     },
     {
       title: "Community",
-      icon: <Users className="w-6 h-6" />,
+      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1538a485-a313-4adb-9e57-a0a25659c63c-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xNTM4YTQ4NS1hMzEzLTRhZGItOWU1Ny1hMGEyNTY1OWM2M2MtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgyNzksImV4cCI6NjYwOTUyNTgyNzl9.RDscj4vxpoPKgeidh7Edefftv7Bib4ptdGbAfY_zubs" alt="Community" className="w-6 h-6 object-contain" />,
       bgColor: "bg-gradient-to-br from-orange-100 to-orange-200",
       iconBg: "bg-orange-500",
       textColor: "text-orange-700",
@@ -352,63 +352,47 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Latest Blog Posts */}
+      {/* Latest Blog Posts - Click to View All */}
       {!loading && blogs.length > 0 && (
         <div className="px-4 mb-8">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Latest Blog Posts</h2>
           <div 
-            className="rounded-2xl p-6 relative overflow-hidden min-h-[300px] bg-gradient-to-br from-purple-600 to-purple-800"
+            onClick={() => navigate('/blogs')}
+            className="rounded-2xl p-6 relative overflow-hidden min-h-[200px] bg-gradient-to-br from-purple-600 to-purple-800 cursor-pointer group hover:shadow-xl transition-all duration-300"
             style={{
-              backgroundImage: `url(${blogs[currentBlogIndex].featured_image})`,
+              backgroundImage: `url(${blogs[0].featured_image})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat'
             }}
-            onTouchStart={onBlogTouchStart}
-            onTouchMove={onBlogTouchMove}
-            onTouchEnd={onBlogTouchEnd}
           >
-            {/* Dark overlay for text readability */}
-            <div className="absolute inset-0 bg-black bg-opacity-40 rounded-2xl"></div>
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-black bg-opacity-50 group-hover:bg-opacity-60 transition-all duration-300 rounded-2xl"></div>
             
             {/* Content */}
-            <div className="absolute bottom-0 left-0 right-0 z-10">
-              <button
-                onClick={() => handleBlogClick(blogs[currentBlogIndex].id)}
-                className="w-full text-left p-4"
-              >
-                <div className="inline-block bg-white bg-opacity-90 text-gray-700 text-xs px-2 py-1 rounded-lg mb-3">
-                  {blogs[currentBlogIndex].category}
-                </div>
-                <h3 className="text-white text-lg font-bold mb-2 leading-tight">
-                  {blogs[currentBlogIndex].title}
-                </h3>
-                <p className="text-white text-sm opacity-90 leading-relaxed mb-3">
-                  {blogs[currentBlogIndex].excerpt}
-                </p>
-                <div className="flex justify-between items-center text-white text-xs">
-                  <div>
-                    <div className="font-medium">{blogs[currentBlogIndex].author}</div>
-                    <div className="opacity-80">Karma Terra Blog</div>
-                  </div>
-                  <div className="opacity-90">{blogs[currentBlogIndex].read_time}</div>
-                </div>
-              </button>
-            </div>
-            
-            {/* Blog Carousel Dots */}
-            <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex justify-center space-x-2">
-              {blogs.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToBlog(index)}
-                  aria-label={`Go to blog ${index + 1}`}
-                  title={`Go to blog ${index + 1}`}
-                  className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                    index === currentBlogIndex ? "bg-white" : "bg-white opacity-30"
-                  }`}
-                />
-              ))}
+            <div className="relative z-10 flex flex-col items-center justify-center h-full text-center">
+              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <h3 className="text-white text-2xl font-bold mb-2">
+                Explore Our Blog
+              </h3>
+              <p className="text-white text-sm opacity-90 mb-4 max-w-md">
+                Discover expert tips, skincare advice, and wellness insights
+              </p>
+              <div className="inline-flex items-center gap-2 bg-white text-purple-700 px-6 py-2 rounded-full font-medium text-sm group-hover:bg-opacity-100 bg-opacity-90 transition-all">
+                <span>View All Posts</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              
+              {/* Blog count badge */}
+              <div className="absolute top-4 right-4 bg-white text-purple-700 text-xs font-bold px-3 py-1 rounded-full">
+                {blogs.length} Posts
+              </div>
             </div>
           </div>
         </div>

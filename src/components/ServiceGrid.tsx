@@ -7,14 +7,14 @@ export const ServiceGrid = () => {
 
   const services = [
     {
-      icon: Brain,
+      icon: "https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/ec8d32dd-cf00-4a0d-93bd-64307bab4bef-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy9lYzhkMzJkZC1jZjAwLTRhMGQtOTNiZC02NDMwN2JhYjRiZWYtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTc5NDMsImV4cCI6NjYyNTI5Mzc5NDN9.-tl5ce8D_UakU395AaLe0omfi5oXOZQkk3lKIcuFH5A",
       title: "Know Your Skin",
-      description: "Learn about different skin types",
+      description: "Analyze your skin type",
       path: "/know-your-skin",
-      color: "from-blue-500 to-blue-600"
+      color: "from-green-500 to-green-600"
     },
     {
-      icon: Heart,
+      icon: "https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1dec4eca-3cf7-4ae8-92e6-baf368a43342-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xZGVjNGVjYS0zY2Y3LTRhZTgtOTJlNi1iYWYzNjhhNDMzNDItcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgxMjUsImV4cCI6NjY0MTA2MTgxMjV9.1TWqdqbHTJSOkyIw8EMQLpn2EPgYvXwSzHRP7odhTEw",
       title: "Know Your Hair",
       description: "Discover your hair type and needs",
       path: "/know-your-hair",
@@ -42,7 +42,11 @@ export const ServiceGrid = () => {
             >
               <CardContent className="p-2 text-center space-y-1">
                 <div className={`w-8 h-8 mx-auto rounded-full bg-gradient-to-r ${service.color} flex items-center justify-center shadow-soft`}>
-                  <service.icon className="w-4 h-4 text-white" />
+                  {typeof service.icon === 'string' ? (
+                    <img src={service.icon} alt={service.title} className="w-4 h-4 object-contain" />
+                  ) : (
+                    <service.icon className="w-4 h-4 text-white" />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-semibold text-[10px] mb-0.5 leading-tight">{service.title}</h3>

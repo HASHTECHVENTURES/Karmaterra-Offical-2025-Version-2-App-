@@ -1,25 +1,28 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Send } from "lucide-react";
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ArrowLeft, Plus, Send, MessageSquare, Trash2, Menu, X } from "lucide-react";
 import { useAuth } from "@/App";
+import { karmaAI, type Message as AIMessage, type Conversation } from "@/services/karmaAIService";
+import { useToast } from "@/hooks/use-toast";
 
-const API_KEY = 'AIzaSyAbJINoNUa_H8UCfdpjstcWJS2ZMjDB3mQ';
-const genAI = new GoogleGenerativeAI(API_KEY);
-
-interface Message {
+interface DisplayMessage {
   id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
+  content: string;
+  is_user_message: boolean;
+  created_at: string;
 }
 
 const AskKarmaPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -30,69 +33,193 @@ const AskKarmaPage = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load user's conversations on mount
   useEffect(() => {
-    // Add welcome message
-    if (messages.length === 0) {
-      setMessages([{
-        id: '1',
-        text: `Hi ${user?.name || 'there'}! 👋\n\nAsk me anything about skincare, beauty, or wellness! I'm here to help you with personalized advice, product recommendations, and expert tips.`,
-        isUser: false,
-        timestamp: new Date()
-      }]);
+    if (user?.id) {
+      loadConversations();
     }
-  }, [user?.name, messages.length]);
+  }, [user?.id]);
+
+  const loadConversations = async () => {
+    if (!user?.id) return;
+    
+    setIsLoadingConversations(true);
+    const convos = await karmaAI.getConversations(user.id);
+    setConversations(convos);
+    setIsLoadingConversations(false);
+
+    // If there are no conversations, show welcome message
+    if (convos.length === 0) {
+      showWelcomeMessage();
+    }
+  };
+
+  const showWelcomeMessage = () => {
+    const welcomeMsg: DisplayMessage = {
+      id: 'welcome',
+      content: `Hi ${user?.name || 'there'}! 👋
+
+I'm Karma Terra AI, your personal skincare and wellness assistant. I'm here to help you with:
+
+• Personalized skincare advice
+• Hair care recommendations
+• Product ingredient analysis
+• Beauty and wellness tips
+• Answers to all your beauty questions
+
+Feel free to ask me anything!`,
+      is_user_message: false,
+      created_at: new Date().toISOString()
+    };
+    setMessages([welcomeMsg]);
+  };
+
+  const loadConversation = async (conversation: Conversation) => {
+    setCurrentConversation(conversation);
+    const msgs = await karmaAI.getMessages(conversation.id);
+    
+    // Convert to display format
+    const displayMsgs: DisplayMessage[] = msgs.map(msg => ({
+      id: msg.id,
+      content: msg.content,
+      is_user_message: msg.is_user_message,
+      created_at: msg.created_at
+    }));
+    
+    setMessages(displayMsgs);
+    setShowSidebar(false);
+  };
+
+  const startNewConversation = () => {
+    setCurrentConversation(null);
+    showWelcomeMessage();
+    setShowSidebar(false);
+  };
+
+  const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const success = await karmaAI.deleteConversation(conversationId);
+    if (success) {
+      toast({
+        title: "Conversation deleted",
+        description: "The conversation has been removed.",
+      });
+      
+      // Reload conversations
+      await loadConversations();
+      
+      // If we deleted the current conversation, start a new one
+      if (currentConversation?.id === conversationId) {
+        startNewConversation();
+      }
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to delete conversation.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const sendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
+    if (!inputText.trim() || isLoading || !user?.id) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText,
-      isUser: true,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMessageContent = inputText;
     setInputText("");
     setIsLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+      // Create new conversation if needed
+      let conversationId = currentConversation?.id;
       
-      const prompt = `You are Karma Terra, a friendly and knowledgeable AI assistant specializing in skincare, beauty, and wellness. You provide personalized, expert advice with a warm and encouraging tone. 
+      if (!conversationId) {
+        const title = karmaAI.generateConversationTitle(userMessageContent);
+        const newConvo = await karmaAI.createConversation(user.id, title);
+        
+        if (!newConvo) {
+          throw new Error('Failed to create conversation');
+        }
+        
+        conversationId = newConvo.id;
+        setCurrentConversation(newConvo);
+        
+        // Reload conversations list
+        loadConversations();
+      }
 
-User's question: ${inputText}
+      // Add user message to UI immediately
+      const tempUserMessage: DisplayMessage = {
+        id: `temp-${Date.now()}`,
+        content: userMessageContent,
+        is_user_message: true,
+        created_at: new Date().toISOString()
+      };
+      setMessages(prev => [...prev.filter(m => m.id !== 'welcome'), tempUserMessage]);
 
-Please provide a helpful, detailed response that:
-1. Directly addresses their question
-2. Offers practical, actionable advice
-3. Mentions relevant Karma Terra products when appropriate
-4. Maintains a supportive and encouraging tone
-5. Keeps the response conversational and easy to understand
+      // Save user message to database
+      await karmaAI.saveMessage(conversationId, user.id, userMessageContent, true);
 
-If the question is about skincare, hair care, or wellness, provide specific recommendations and tips.`;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: text,
-        isUser: false,
-        timestamp: new Date()
+      // Get conversation history for context
+      const conversationHistory = await karmaAI.getMessages(conversationId);
+      
+      // Build user context
+      const userContext = {
+        name: user.name,
+        gender: user.gender,
+        age: user.birthdate ? new Date().getFullYear() - new Date(user.birthdate).getFullYear() : undefined
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      // Generate AI response
+      const aiResponse = await karmaAI.generateResponse(
+        userMessageContent,
+        conversationHistory,
+        userContext
+      );
+
+      if (!aiResponse) {
+        throw new Error('Failed to generate response');
+      }
+
+      // Save AI message to database
+      const savedAiMessage = await karmaAI.saveMessage(
+        conversationId,
+        user.id,
+        aiResponse.text,
+        false,
+        aiResponse.metadata
+      );
+
+      if (savedAiMessage) {
+        // Add AI message to UI
+        const aiMsg: DisplayMessage = {
+          id: savedAiMessage.id,
+          content: aiResponse.text,
+          is_user_message: false,
+          created_at: savedAiMessage.created_at
+        };
+        setMessages(prev => [...prev, aiMsg]);
+      }
+
+      // Update conversations list to reflect new activity
+      loadConversations();
+
     } catch (error) {
       console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
-        isUser: false,
-        timestamp: new Date()
+      
+      const errorMsg: DisplayMessage = {
+        id: `error-${Date.now()}`,
+        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        is_user_message: false,
+        created_at: new Date().toISOString()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
+      
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -105,113 +232,252 @@ If the question is about skincare, hair care, or wellness, provide specific reco
     }
   };
 
-  const startNewChat = () => {
-    setMessages([]);
+  const formatMessageContent = (content: string) => {
+    // Clean up any potential formatting issues
+    let cleanContent = content
+      .replace(/\*\*\s*[{\[\(]/g, '') // Remove broken markdown
+      .replace(/[}\]\)]\s*\*\*/g, '') // Remove broken markdown
+      .replace(/\*\*\*+/g, '') // Remove multiple asterisks
+      .replace(/\n{3,}/g, '\n\n'); // Max 2 line breaks
+    
+    // Split by double newlines for paragraphs
+    const paragraphs = cleanContent.split('\n\n');
+    
+    return paragraphs.map((para, idx) => {
+      const trimmedPara = para.trim();
+      if (!trimmedPara) return null;
+      
+      // Check if it's a bullet list
+      if (trimmedPara.includes('•') || trimmedPara.includes('- ') || trimmedPara.match(/^\d+\./m)) {
+        const lines = trimmedPara.split('\n').filter(line => line.trim());
+        return (
+          <div key={idx} className="mb-3 space-y-1">
+            {lines.map((line, lineIdx) => {
+              const cleanLine = line.trim();
+              if (!cleanLine) return null;
+              return (
+                <div key={lineIdx} className="flex items-start gap-2">
+                  {cleanLine.startsWith('•') || cleanLine.startsWith('-') ? (
+                    <>
+                      <span className="text-green-600 font-bold mt-0.5">•</span>
+                      <span className="flex-1">{cleanLine.replace(/^[•\-]\s*/, '')}</span>
+                    </>
+                  ) : cleanLine.match(/^\d+\./) ? (
+                    <span className="flex-1">{cleanLine}</span>
+                  ) : (
+                    <span className="flex-1">{cleanLine}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+      
+      // Regular paragraph
+      return (
+        <p key={idx} className="mb-3 last:mb-0 leading-relaxed">
+          {trimmedPara}
+        </p>
+      );
+    }).filter(Boolean);
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-white flex">
+      {/* Sidebar - Conversation History */}
+      <div
+        className={`fixed lg:relative inset-y-0 left-0 z-30 w-72 bg-gray-50 border-r border-gray-200 transform transition-transform duration-300 ease-in-out ${
+          showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="h-full flex flex-col">
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800">Conversations</h2>
             <button
-              onClick={() => navigate('/')}
-              className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
+              onClick={() => setShowSidebar(false)}
+              className="lg:hidden text-gray-600 hover:bg-gray-200 p-1 rounded"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-gray-800">Karma Terra</h1>
-              <span className="text-gray-400">⌄</span>
-            </div>
           </div>
-          <button
-            onClick={startNewChat}
-            aria-label="Start new chat"
-            title="Start new chat"
-            className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
+
+          {/* New Chat Button */}
+          <div className="p-3">
+            <button
+              onClick={startNewConversation}
+              className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-2.5 px-4 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">New Chat</span>
+            </button>
+          </div>
+
+          {/* Conversations List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {isLoadingConversations ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                Loading conversations...
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                No conversations yet.<br />Start a new chat!
+              </div>
+            ) : (
+              conversations.map((convo) => (
+                <div
+                  key={convo.id}
+                  onClick={() => loadConversation(convo)}
+                  className={`group flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                    currentConversation?.id === convo.id
+                      ? 'bg-green-100 border border-green-300'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 line-clamp-2 break-words">
+                      {convo.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(convo.updated_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => deleteConversation(convo.id, e)}
+                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-50 p-1.5 rounded transition-opacity"
+                    aria-label="Delete conversation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                message.isUser
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-100 text-gray-800'
-              }`}
-            >
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {message.text}
+      {/* Overlay for mobile */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowSidebar(true)}
+                className="lg:hidden text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-800">
+                  {currentConversation ? currentConversation.title : 'Karma Terra AI'}
+                </h1>
+                <p className="text-xs text-gray-500">Your AI Beauty Assistant</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.is_user_message ? 'justify-end' : 'justify-start'}`}
+            >
               <div
-                className={`text-xs mt-2 ${
-                  message.isUser ? 'text-green-100' : 'text-gray-500'
+                className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                  message.is_user_message
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-100 text-gray-800'
                 }`}
               >
-                {message.timestamp.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-          </div>
-        ))}
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-800 rounded-2xl px-4 py-3">
-              <div className="flex items-center gap-2">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="text-sm leading-relaxed">
+                  {message.is_user_message ? (
+                    <p>{message.content}</p>
+                  ) : (
+                    formatMessageContent(message.content)
+                  )}
                 </div>
-                <span className="text-sm text-gray-600">Karma Terra is typing...</span>
+                <div
+                  className={`text-xs mt-2 ${
+                    message.is_user_message ? 'text-green-100' : 'text-gray-500'
+                  }`}
+                >
+                  {new Date(message.created_at).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
+          ))}
+          
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 text-gray-800 rounded-2xl px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-600">Karma Terra is thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-gray-200 flex-shrink-0">
-        <div className="flex items-end gap-3">
-          <div className="flex-1">
-            <textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask anything"
-              className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              rows={1}
-              style={{
-                minHeight: '48px',
-                maxHeight: '120px'
-              }}
-            />
+        {/* Input */}
+        <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
+          <div className="flex items-end gap-3 max-w-4xl mx-auto">
+            <div className="flex-1">
+              <textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask me anything about skincare, hair care, or wellness..."
+                className="w-full resize-none border border-gray-300 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                rows={1}
+                style={{
+                  minHeight: '48px',
+                  maxHeight: '120px'
+                }}
+                disabled={isLoading}
+              />
+            </div>
+            <button
+              onClick={sendMessage}
+              disabled={!inputText.trim() || isLoading}
+              aria-label="Send message"
+              title="Send message"
+              className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white p-3 rounded-full transition-colors flex-shrink-0"
+            >
+              <Send className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={sendMessage}
-            disabled={!inputText.trim() || isLoading}
-            aria-label="Send message"
-            title="Send message"
-            className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white p-3 rounded-full transition-colors"
-          >
-            <Send className="w-5 h-5" />
-          </button>
+          <p className="text-xs text-gray-500 text-center mt-2">
+            Karma Terra AI can make mistakes. Check important info.
+          </p>
         </div>
       </div>
     </div>

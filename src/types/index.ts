@@ -5,7 +5,12 @@ export interface User {
   name?: string;
   email?: string;
   phone_number?: string;
+  country_code?: string;
   gender?: string;
+  birthdate?: string;
+  country?: string;
+  state?: string;
+  city?: string;
   avatar?: string;
 }
 
@@ -16,7 +21,7 @@ export interface LoginResult {
 
 export interface AuthContextType {
   user: User | null;
-  login: (pin: string, name?: string) => Promise<LoginResult>;
+  login: (pin: string, name?: string, email?: string, gender?: string, birthdate?: string, country?: string, state?: string, city?: string, country_code?: string, phone_number?: string) => Promise<LoginResult>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -52,4 +57,45 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Skin Analysis Specific Types from original-skin-analyzer/types.ts
+
+export interface UserData {
+  name: string;
+  age: number;
+  gender: string;
+  city: string;
+  state: string;
+  country: string;
+  profession: string;
+  workingTime: string; // Renamed from workingHours for consistency
+  acUsage: string;
+  smoking: string;
+  waterQuality: string;
+}
+
+export interface AnalysisParameter {
+  category: string;
+  rating: number;
+  severity: 'Mild' | 'Medium' | 'Severe' | 'N/A';
+  description: string;
+}
+
+export interface AnalysisResult {
+  summary: string;
+  overallSeverity: 'Mild' | 'Medium' | 'Severe';
+  parameters: AnalysisParameter[];
+  routine: {
+    morning: string[];
+    evening: string[];
+  };
+}
+
+export interface Report {
+  id: string;
+  date: string;
+  result: AnalysisResult;
+  userData: UserData;
+  faceImages: string[];
 }

@@ -40,13 +40,6 @@ const HairAnalysisPage = () => {
       description: 'Capture the crown and top of head',
       icon: '👑',
       color: 'bg-green-100 text-green-600'
-    },
-    {
-      id: 'side',
-      name: 'Side View',
-      description: 'Capture temple and side areas',
-      icon: '👂',
-      color: 'bg-purple-100 text-purple-600'
     }
   ];
 
@@ -149,8 +142,8 @@ const HairAnalysisPage = () => {
     // Stop camera
     stopCamera();
 
-    // Auto-analyze when all 3 images are captured
-    if (Object.keys(newCapturedImages).length === 3) {
+    // Auto-analyze when all 2 images are captured
+    if (Object.keys(newCapturedImages).length === 2) {
       analyzeHair(newCapturedImages);
     }
   };
@@ -168,8 +161,8 @@ const HairAnalysisPage = () => {
       };
       setCapturedImages(newCapturedImages);
 
-      // Auto-analyze when all 3 images are captured
-      if (Object.keys(newCapturedImages).length === 3) {
+      // Auto-analyze when all 2 images are captured
+      if (Object.keys(newCapturedImages).length === 2) {
         analyzeHair(newCapturedImages);
       }
     };
@@ -179,8 +172,8 @@ const HairAnalysisPage = () => {
   const analyzeHair = async (images?: {[key: string]: string}) => {
     const imagesToAnalyze = images || capturedImages;
     
-    if (Object.keys(imagesToAnalyze).length < 3) {
-      setError('Please capture all three views before analysis');
+    if (Object.keys(imagesToAnalyze).length < 2) {
+      setError('Please capture both views before analysis');
       return;
     }
 
@@ -191,11 +184,11 @@ const HairAnalysisPage = () => {
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
       const prompt = `
-        You are a professional trichologist analyzing THREE hair images: front view, top view, and side view. You MUST analyze ALL THREE images and provide results for each view.
+        You are a professional trichologist analyzing TWO hair images: front view and top view. You MUST analyze BOTH images and provide results for each view.
         
         CRITICAL ANALYSIS INSTRUCTIONS:
-        - You are receiving 3 separate images: front, top, and side hair views
-        - Analyze EACH image individually and provide parameters for ALL views
+        - You are receiving 2 separate images: front and top hair views
+        - Analyze EACH image individually and provide parameters for BOTH views
         - Look VERY CAREFULLY at the actual hair - examine every detail
         - Report ALL visible hair issues you can detect, even minor ones
         - Be thorough and comprehensive in your analysis
@@ -228,7 +221,7 @@ const HairAnalysisPage = () => {
         - Look for ALL 6 parameters in EVERY image - do not skip any
         - Maximum 10 issues per hair view to ensure comprehensive analysis
         - Look very carefully for subtle issues that might be missed
-        - MANDATORY: You must analyze ALL THREE views (front, top, side)
+        - MANDATORY: You must analyze BOTH views (front and top)
         - MANDATORY: You must check for ALL 6 parameters in each view
         - If you see ANY hair issue, report it with coordinates
         
@@ -237,7 +230,7 @@ const HairAnalysisPage = () => {
         - Higher counts/severity reduce score. Good hydration and low damage increase score.
         - Consider overall hair quality, not just individual issues
 
-        REQUIRED JSON STRUCTURE (analyze ALL three views comprehensively):
+        REQUIRED JSON STRUCTURE (analyze BOTH views comprehensively):
         {
           "hair_analysis": {
             "1. Hair Density and Thickness": {
@@ -282,7 +275,7 @@ const HairAnalysisPage = () => {
         }
 
         CRITICAL INSTRUCTIONS:
-        - You MUST analyze all three images and provide results for front, top, and side views
+        - You MUST analyze both images and provide results for front and top views
         - You MUST check for ALL 6 parameters in EVERY image
         - You MUST report ALL visible hair issues you can detect
         - Do NOT skip any views or parameters
@@ -497,13 +490,13 @@ const HairAnalysisPage = () => {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
               className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${(getCapturedCount() / 3) * 100}%` }}
+              style={{ width: `${(getCapturedCount() / 2) * 100}%` }}
             ></div>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            {getCapturedCount() === 3 
+            {getCapturedCount() === 2 
               ? 'All photos captured! Analysis in progress...' 
-              : `Capture photos of all three areas for complete analysis (${getCapturedCount()}/3).`
+              : `Capture photos of both areas for complete analysis (${getCapturedCount()}/2).`
             }
           </p>
         </div>

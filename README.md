@@ -31,6 +31,16 @@ npm run dev
 
 The frontend will be available at: `http://localhost:8080`
 
+### Environment Variables (Frontend)
+
+Create a file named `.env.local` at the project root with:
+
+```
+VITE_RAPIDAPI_KEY=your_rapidapi_key_here
+```
+
+This key is used by the Know Your Skin live analyzer.
+
 ### Backend Setup
 ```bash
 # Navigate to backend directory

@@ -174,13 +174,13 @@ const HairAnalysisResultsPage = () => {
         {/* Overall Score */}
         <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
           <div className="text-center">
-            <div className={`w-20 h-20 rounded-full ${getScoreBgColor(analysisData.overall_score || 75)} flex items-center justify-center mx-auto mb-4`}>
-              <span className={`text-3xl font-bold ${getScoreColor(analysisData.overall_score || 75)}`}>
-                {analysisData.overall_score || 75}
+            <div className={`w-20 h-20 rounded-full ${getScoreBgColor(analysisData.overall_score || 0)} flex items-center justify-center mx-auto mb-4`}>
+              <span className={`text-3xl font-bold ${getScoreColor(analysisData.overall_score || 0)}`}>
+                {analysisData.overall_score || 'N/A'}
               </span>
             </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Overall Hair Health Score</h2>
-            <p className={`text-lg font-semibold ${getScoreColor(analysisData.overall_score || 75)}`}>
+            <p className={`text-lg font-semibold ${getScoreColor(analysisData.overall_score || 0)}`}>
               {analysisData.overall_score >= 80 && "Excellent hair health"}
               {analysisData.overall_score >= 60 && analysisData.overall_score < 80 && "Good hair health"}
               {analysisData.overall_score < 60 && "Your hair needs attention"}
@@ -197,7 +197,7 @@ const HairAnalysisResultsPage = () => {
             <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200">
               <h4 className="font-semibold text-gray-800 mb-2">Hair Health Overview</h4>
               <p className="text-gray-700 leading-relaxed text-sm">
-                {analysisData.overall_analysis || "Your hair analysis reveals a comprehensive assessment of your hair's current condition. Based on the detailed examination of your front, top, and side views, we've identified key areas of strength and opportunities for improvement."}
+                {analysisData.overall_analysis || "Your hair analysis reveals a comprehensive assessment of your hair's current condition. Based on the detailed examination of your front and top views, we've identified key areas of strength and opportunities for improvement."}
               </p>
             </div>
 
@@ -259,8 +259,7 @@ const HairAnalysisResultsPage = () => {
           {Object.entries(analysisData.images || {}).map(([view, data]: [string, any]) => {
             const viewNames = {
               front: 'Front View',
-              top: 'Top View',
-              side: 'Side View'
+              top: 'Top View'
             };
             
             return (

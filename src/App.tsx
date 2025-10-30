@@ -16,14 +16,15 @@ import HairAnalysisPage from "./pages/HairAnalysisPage";
 import HairAnalysisResultsPage from "./pages/HairAnalysisResultsPage";
 import AskKarmaPage from "./pages/AskKarmaPage";
 import IngredientsPage from "./pages/services/IngredientsPage";
-import KnowYourSkinPage from "./pages/services/KnowYourSkinPage";
 import KnowYourHairPage from "./pages/services/KnowYourHairPage";
 import MarketPage from "./pages/MarketPage";
-import SkinAnalyzerPage from "./pages/SkinAnalyzerPage";
-import SkinAnalysisPage from "./pages/SkinAnalysisPage";
-import SkinAnalysisResultsPage from "./pages/SkinAnalysisResultsPage";
+// Removed old Enhanced Skin Analysis pages
+import ProgressTrackingPage from "./pages/ProgressTrackingPage";
+import BlogsPage from "./pages/BlogsPage";
 import BlogDetailPage from "./pages/BlogDetailPage";
 import NotFound from "./pages/NotFound";
+import KnowYourSkinPage from "./pages/services/KnowYourSkinPage";
+import EnhancedSkinAnalysisResultsPage from "./pages/EnhancedSkinAnalysisResultsPage";
 
 const queryClient = new QueryClient();
 
@@ -54,7 +55,7 @@ const App = () => {
     setLoading(false);
   }, []);
 
-  const login = async (pin: string, name?: string): Promise<LoginResult> => {
+  const login = async (pin: string, name?: string, email?: string, gender?: string, birthdate?: string, country?: string, state?: string, city?: string, country_code?: string, phone_number?: string): Promise<LoginResult> => {
     try {
       // PIN validation
       if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
@@ -66,13 +67,62 @@ const App = () => {
         .from('profiles')
         .select('*')
         .eq('pin', pin)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Supabase error:', error);
         return { success: false, error: 'Database connection error. Please try again.' };
       }
 
+      // If profile doesn't exist and we have signup data, create new user
+      if (!profile && name && email && gender && birthdate && country && state && city && country_code && phone_number) {
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            pin: pin,
+            full_name: name,
+            email: email,
+            gender: gender,
+            birthdate: birthdate,
+            country: country,
+            state: state,
+            city: city,
+            country_code: country_code,
+            phone_number: phone_number,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Signup error:', insertError);
+          return { success: false, error: 'Failed to create account. Please try again.' };
+        }
+
+        // Create user object from new profile
+        const userData: User = {
+          id: newProfile.id,
+          pin: newProfile.pin,
+          name: newProfile.full_name?.split(' ')[0] || name.split(' ')[0],
+          email: newProfile.email,
+          phone_number: newProfile.phone_number,
+          country_code: newProfile.country_code,
+          gender: newProfile.gender,
+          birthdate: newProfile.birthdate,
+          country: newProfile.country,
+          state: newProfile.state,
+          city: newProfile.city,
+          avatar: newProfile.avatar_url || "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
+        };
+
+        // Store user in localStorage
+        localStorage.setItem('karma-terra-user', JSON.stringify(userData));
+        setUser(userData);
+
+        return { success: true };
+      }
+
+      // If profile doesn't exist and no signup data, return error
       if (!profile) {
         return { success: false, error: 'Invalid PIN. Please check your PIN and try again.' };
       }
@@ -87,7 +137,12 @@ const App = () => {
         name: firstName,
         email: profile.email,
         phone_number: profile.phone_number,
+        country_code: profile.country_code,
         gender: profile.gender,
+        birthdate: profile.birthdate,
+        country: profile.country,
+        state: profile.state,
+        city: profile.city,
         avatar: profile.avatar_url || "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face"
       };
 
@@ -140,21 +195,21 @@ const App = () => {
         <AuthContext.Provider value={{ user, login, signOut, updateProfile }}>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <AuthPage />} />
               <Route path="/community" element={user ? <CommunityPage /> : <AuthPage />} />
-              <Route path="/skin-analysis" element={user ? <SkinAnalysisPage /> : <AuthPage />} />
-              <Route path="/skin-analysis-results" element={user ? <SkinAnalysisResultsPage /> : <AuthPage />} />
+              <Route path="/know-your-skin" element={<KnowYourSkinPage />} />
+              <Route path="/skin-analysis-results" element={user ? <EnhancedSkinAnalysisResultsPage /> : <AuthPage />} />
+              <Route path="/progress-tracking" element={user ? <ProgressTrackingPage /> : <AuthPage />} />
               <Route path="/hair-analysis" element={user ? <HairAnalysisPage /> : <AuthPage />} />
               <Route path="/hair-analysis-results" element={user ? <HairAnalysisResultsPage /> : <AuthPage />} />
               <Route path="/ask-karma" element={user ? <AskKarmaPage /> : <AuthPage />} />
               <Route path="/ingredients" element={user ? <IngredientsPage /> : <AuthPage />} />
-              <Route path="/know-your-skin" element={user ? <KnowYourSkinPage /> : <AuthPage />} />
               <Route path="/know-your-hair" element={user ? <KnowYourHairPage /> : <AuthPage />} />
               <Route path="/market" element={user ? <MarketPage /> : <AuthPage />} />
-              <Route path="/skin-analyzer" element={user ? <SkinAnalyzerPage /> : <AuthPage />} />
+              <Route path="/blogs" element={user ? <BlogsPage /> : <AuthPage />} />
               <Route path="/blog/:id" element={user ? <BlogDetailPage /> : <AuthPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
