@@ -5,6 +5,7 @@ import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carouse
 import Autoplay from "embla-carousel-autoplay";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Browser } from "@capacitor/browser";
 
 export const ProductCarousel = () => {
   const navigate = useNavigate();
@@ -30,8 +31,12 @@ export const ProductCarousel = () => {
     }
   ];
 
-  const handleProductClick = (product) => {
-    setSelectedProduct(product);
+  const handleProductClick = async (product) => {
+    try {
+      await Browser.open({ url: product.link });
+    } catch {
+      setSelectedProduct(product);
+    }
   };
 
   const handleBackClick = () => {
@@ -42,7 +47,7 @@ export const ProductCarousel = () => {
     return (
       <div className="min-h-screen bg-white">
         {/* Navigation Header */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
+        <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40 safe-area-top nav-safe-area">
           <div className="max-w-md mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <button
@@ -62,16 +67,7 @@ export const ProductCarousel = () => {
           </div>
         </div>
 
-        {/* Product Web View */}
-        <div className="h-screen">
-          <iframe
-            src={selectedProduct.link}
-            className="w-full h-full border-0"
-            title={selectedProduct.name}
-            allow="payment; camera; microphone; geolocation"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-          />
-        </div>
+        {/* External open fallback is handled by Browser; keeping back view as fallback only */}
       </div>
     );
   }

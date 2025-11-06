@@ -160,16 +160,22 @@ All colors MUST be HSL.
 
   /* Mobile-specific safe area classes */
   .mobile-safe-top {
-    padding-top: max(env(safe-area-inset-top), 1.5rem);
+    padding-top: max(env(safe-area-inset-top), 3rem);
+  }
+  
+  /* Header safe area - extra padding for logo to avoid punch hole camera */
+  .header-safe-area {
+    padding-top: max(env(safe-area-inset-top), 3.5rem);
+    min-height: calc(3.5rem + env(safe-area-inset-top));
   }
 
   .mobile-safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }
 
-  /* Navigation safe area - ensures content doesn't overlap with status bar/notch */
+  /* Navigation safe area - ensures content doesn't overlap with status bar/notch/punch hole camera */
   .nav-safe-area {
-    padding-top: max(env(safe-area-inset-top), 2.5rem);
+    padding-top: max(env(safe-area-inset-top), 3.5rem);
   }
 
   /* Content safe area - ensures content is visible above camera bump */

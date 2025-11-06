@@ -18,11 +18,12 @@ export const BottomNavigation = () => {
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className={`flex flex-col items-center gap-1 p-3 h-auto ${
+          className={`flex flex-col items-center gap-1 p-3 min-h-[48px] min-w-[48px] ${
             isActive("/") 
               ? "text-karma-gold bg-karma-gold/10" 
               : "text-muted-foreground hover:text-karma-gold"
           }`}
+          aria-label="Navigate to home"
         >
           <Home className="w-5 h-5" />
           <span className="text-xs font-medium">Home</span>
@@ -31,24 +32,26 @@ export const BottomNavigation = () => {
         <Button
           variant="ghost"
           onClick={handleMarketplace}
-          className={`flex flex-col items-center gap-1 p-3 h-auto ${
+          className={`flex flex-col items-center gap-1 p-3 min-h-[48px] min-w-[48px] ${
             isActive("/market") 
               ? "text-karma-gold bg-karma-gold/10" 
               : "text-muted-foreground hover:text-karma-gold"
           }`}
+          aria-label="Navigate to marketplace"
         >
-          <ShoppingBag className="w-5 h-5" />
-          <span className="text-xs font-medium">Market</span>
+              <ShoppingBag className="w-5 h-5" />
+              <span className="text-xs font-medium">Shop</span>
         </Button>
 
         <Button
           variant="ghost"
           onClick={() => navigate("/profile")}
-          className={`flex flex-col items-center gap-1 p-3 h-auto ${
+          className={`flex flex-col items-center gap-1 p-3 min-h-[48px] min-w-[48px] ${
             isActive("/profile") 
               ? "text-karma-gold bg-karma-gold/10" 
               : "text-muted-foreground hover:text-karma-gold"
           }`}
+          aria-label="Navigate to profile"
         >
           <User className="w-5 h-5" />
           <span className="text-xs font-medium">Profile</span>

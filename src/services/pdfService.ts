@@ -1,6 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Report } from '../types';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
@@ -51,7 +54,7 @@ export const generatePDFReport = async (report: Report): Promise<void> => {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Patient Information', 15, yPosition);
+  doc.text('User Information', 15, yPosition);
   yPosition += 8;
 
   doc.setFontSize(10);
@@ -225,6 +228,7 @@ export const generatePDFReport = async (report: Report): Promise<void> => {
   const lifestyleData = [
     ['Profession', report.userData.profession],
     ['Working Hours', report.userData.workingTime],
+    ['Work Stress', report.userData.workStress || 'N/A'],
     ['Smoking Status', report.userData.smoking],
     ['Water Quality', report.userData.waterQuality],
     ['AC Usage', report.userData.acUsage]
@@ -328,6 +332,30 @@ export const generatePDFReport = async (report: Report): Promise<void> => {
   // SAVE PDF
   // ===============================
   const fileName = `KarmaTerra_Skin_Analysis_${report.userData.name.replace(/\s+/g, '_')}_${report.date.replace(/\//g, '-')}.pdf`;
-  doc.save(fileName);
+
+  try {
+    if (Capacitor.getPlatform() === 'android' || Capacitor.getPlatform() === 'ios') {
+      const pdfBlob = doc.output('blob');
+      const reader = new FileReader();
+      const filePath = `karmaterra/${fileName}`;
+      const base64: string = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(pdfBlob);
+      });
+      await Filesystem.writeFile({
+        path: filePath,
+        data: base64,
+        directory: Directory.Documents,
+      });
+      const uri = await Filesystem.getUri({ path: filePath, directory: Directory.Documents });
+      await Share.share({ title: 'KarmaTerra Skin Analysis', url: uri.uri, text: 'Your skin analysis report' });
+    } else {
+      doc.save(fileName);
+    }
+  } catch (err) {
+    // Fallback to browser save
+    doc.save(fileName);
+  }
 };
 

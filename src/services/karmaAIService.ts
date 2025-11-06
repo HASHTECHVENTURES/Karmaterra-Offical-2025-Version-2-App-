@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { supabase } from '@/lib/supabase';
 
-const API_KEY = 'AIzaSyAbJINoNUa_H8UCfdpjstcWJS2ZMjDB3mQ';
+const API_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined) || 'AIzaSyCLUJAs3qAWx5c-etSDD9MxlnhfD2DAY2U';
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export interface Message {
@@ -40,7 +40,7 @@ export interface UserContext {
  * KarmaAI Service - Enhanced AI chat service with Supabase integration
  */
 export class KarmaAIService {
-  private model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+  private model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   /**
    * Create a new conversation

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, CheckCircle } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 
 interface PhotoCaptureProps {
   onComplete: (images: string[]) => void;
 }
 
-const steps = ['Front Face', 'Right Side', 'Left Side'];
+const steps = ['Front Face'];
 
 const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -13,6 +14,45 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Lock screen orientation to portrait when camera is active
+  useEffect(() => {
+    const lockOrientation = async () => {
+      if (Capacitor.getPlatform() === 'android' && showCamera) {
+        try {
+          // Use Screen Orientation API if available
+          if (screen.orientation && 'lock' in screen.orientation) {
+            await (screen.orientation as ScreenOrientation).lock('portrait');
+          }
+        } catch (err) {
+          // Lock may fail if not user-initiated or not supported
+          console.warn('Could not lock orientation:', err);
+        }
+      }
+    };
+
+    const unlockOrientation = async () => {
+      if (Capacitor.getPlatform() === 'android') {
+        try {
+          if (screen.orientation && 'unlock' in screen.orientation) {
+            await (screen.orientation as ScreenOrientation).unlock();
+          }
+        } catch (err) {
+          console.warn('Could not unlock orientation:', err);
+        }
+      }
+    };
+
+    if (showCamera) {
+      lockOrientation();
+    }
+
+    return () => {
+      if (!showCamera) {
+        unlockOrientation();
+      }
+    };
+  }, [showCamera]);
 
   useEffect(() => {
     const stopStream = () => {
@@ -54,7 +94,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
 
 
   useEffect(() => {
-    if (images.length === 3) {
+    if (images.length === 1) {
       onComplete(images);
     }
   }, [images, onComplete]);
@@ -98,9 +138,9 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
         <div className="bg-teal-500 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 text-center">
+      <div className="flex justify-center">
         {steps.map((step, index) => (
-          <div key={step} className={`p-6 rounded-lg transition-all duration-300 ${currentStep === index ? 'bg-teal-50 border-2 border-teal-500 shadow-md' : 'bg-slate-100 border-2 border-transparent'}`}>
+          <div key={step} className={`p-6 rounded-lg transition-all duration-300 max-w-md w-full ${currentStep === index ? 'bg-teal-50 border-2 border-teal-500 shadow-md' : 'bg-slate-100 border-2 border-transparent'}`}>
             {images[index] ? (
               <div className="flex flex-col items-center">
                 <CheckCircle className="w-12 h-12 text-green-500 mb-3" />
@@ -114,7 +154,11 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
                 </div>
                 <h3 className="font-bold text-lg text-slate-700">{step}</h3>
                 {currentStep === index && (
-                  <button onClick={handleOpenCamera} className="mt-3 bg-teal-500 text-white text-sm font-semibold py-1.5 px-4 rounded-full hover:bg-teal-600">
+                  <button 
+                    onClick={handleOpenCamera} 
+                    className="mt-3 bg-teal-500 text-white text-sm font-semibold py-3 px-6 rounded-full hover:bg-teal-600 min-h-[48px] min-w-[48px] transition-colors"
+                    aria-label="Open camera to capture photo"
+                  >
                     Open Camera
                   </button>
                 )}
@@ -133,8 +177,20 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({ onComplete }) => {
             </div>
             <canvas ref={canvasRef} className="hidden"></canvas>
             <div className="flex gap-4 mt-6">
-                <button onClick={capturePhoto} className="bg-teal-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-teal-600">Capture</button>
-                <button onClick={handleCloseCamera} className="bg-slate-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-slate-600">Cancel</button>
+                <button 
+                  onClick={capturePhoto} 
+                  className="bg-teal-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-teal-600 min-h-[48px] min-w-[48px] transition-colors"
+                  aria-label="Capture photo"
+                >
+                  Capture
+                </button>
+                <button 
+                  onClick={handleCloseCamera} 
+                  className="bg-slate-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-slate-600 min-h-[48px] min-w-[48px] transition-colors"
+                  aria-label="Cancel camera"
+                >
+                  Cancel
+                </button>
             </div>
         </div>
       )}

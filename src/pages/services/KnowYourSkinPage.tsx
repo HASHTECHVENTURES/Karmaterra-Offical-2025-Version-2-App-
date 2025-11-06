@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, LoaderCircle, History, Camera, Edit } from "lucide-react";
+import { ArrowLeft, LoaderCircle, History, Camera, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AndroidPageHeader } from "../../components/AndroidBackButton";
 import Questionnaire, { QuestionnaireAnswers } from "../../components/Questionnaire";
 import PhotoCapture from "../../components/PhotoCapture";
 import { analyzeSkin } from "../../services/geminiService";
@@ -13,69 +14,256 @@ const KnowYourSkinPage = () => {
   const { user } = useAuth();
   const location = useLocation();
   const [userProfile, setUserProfile] = useState<any | undefined>(undefined);
-  const [localMode, setLocalMode] = useState<'mcq' | 'camera' | 'analyzing' | 'error' | 'menu' | 'history'>('menu');
+  const [localMode, setLocalMode] = useState<'mcq' | 'camera' | 'analyzing' | 'error' | 'menu' | 'history'>('mcq');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [questionnaireAnswers, setQuestionnaireAnswers] = useState<QuestionnaireAnswers | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recentReport, setRecentReport] = useState<Report | null>(null);
   const [hasAnalysisHistory, setHasAnalysisHistory] = useState(false);
   const [allAnalyses, setAllAnalyses] = useState<any[]>([]);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
+      // Reset state when user changes or component initializes
+      setQuestionnaireAnswers(null);
+      setUserProfile(undefined);
+      setHasAnalysisHistory(false);
+      setAllAnalyses([]);
+      setRecentReport(null);
+      
       if (user) {
-        setUserProfile(user);
+        // Load latest profile from Supabase to prefill MCQ and get current data
+        const { data: dbProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (profileError) {
+          console.error('Error loading profile:', profileError);
+        }
+        
+        // Use dbProfile data merged with user data for accurate missing data check
+        const profileForCheck = dbProfile ? { ...user, ...dbProfile } : user;
+        setUserProfile(profileForCheck);
+
+        // Also load latest questionnaire_history for skin type - use maybeSingle to handle no results
+        const { data: latestQuestionnaire, error: questionnaireError } = await supabase
+          .from('questionnaire_history')
+          .select('questionnaire_data')
+          .eq('user_id', user.id)
+          .eq('questionnaire_type', 'skin')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (questionnaireError && questionnaireError.code !== 'PGRST116') {
+          // PGRST116 is "no rows returned" which is expected for new users
+          console.error('Error loading questionnaire history:', questionnaireError);
+        }
+
+        // Prioritize questionnaire_history data over profile data, but fall back to profile
+        const questionnaireData = latestQuestionnaire?.questionnaire_data || null;
+        
+        // Only set questionnaire answers if we have ACTUAL questionnaire data for THIS specific user
+        // Don't create defaults just because a profile exists - new users should start blank
+        const hasActualQuestionnaireData = questionnaireData || 
+          (dbProfile && (
+            dbProfile.primary_skin_concern || 
+            dbProfile.skin_type || 
+            dbProfile.skin_tone || 
+            dbProfile.glow ||
+            dbProfile.midday_skin_feel ||
+            dbProfile.sunscreen_usage ||
+            dbProfile.physical_activity ||
+            dbProfile.sleeping_habits ||
+            dbProfile.skin_treatment ||
+            dbProfile.profession ||
+            dbProfile.working_time ||
+            dbProfile.smoking ||
+            dbProfile.water_quality ||
+            dbProfile.ac_usage
+          ));
+        
+        if (hasActualQuestionnaireData) {
+          // Build previousAnswers only from actual data - NO defaults for display
+          // Defaults will only be applied when completing the questionnaire if user doesn't answer
+          const previousAnswers: Partial<QuestionnaireAnswers> = {};
+          
+          // Only add fields that actually exist in the data
+          if (questionnaireData?.primarySkinConcern || dbProfile?.primary_skin_concern) {
+            previousAnswers.primarySkinConcern = questionnaireData?.primarySkinConcern
+              ? (Array.isArray(questionnaireData.primarySkinConcern)
+                  ? questionnaireData.primarySkinConcern
+                  : [questionnaireData.primarySkinConcern])
+              : Array.isArray(dbProfile?.primary_skin_concern)
+                ? dbProfile.primary_skin_concern
+                : dbProfile?.primary_skin_concern
+                  ? [dbProfile.primary_skin_concern]
+                  : ['Aging'];
+          }
+          
+          if (questionnaireData?.skinType || dbProfile?.skin_type) {
+            previousAnswers.skinType = questionnaireData?.skinType || dbProfile?.skin_type;
+          }
+          if (questionnaireData?.skinTone || dbProfile?.skin_tone) {
+            previousAnswers.skinTone = questionnaireData?.skinTone || dbProfile?.skin_tone;
+          }
+          if (questionnaireData?.glow || dbProfile?.glow) {
+            previousAnswers.glow = questionnaireData?.glow || dbProfile?.glow;
+          }
+          if (questionnaireData?.middaySkinFeel || dbProfile?.midday_skin_feel) {
+            previousAnswers.middaySkinFeel = questionnaireData?.middaySkinFeel || dbProfile?.midday_skin_feel;
+          }
+          if (questionnaireData?.sunscreenUsage || dbProfile?.sunscreen_usage) {
+            previousAnswers.sunscreenUsage = questionnaireData?.sunscreenUsage || dbProfile?.sunscreen_usage;
+          }
+          if (questionnaireData?.physicalActivity || dbProfile?.physical_activity) {
+            previousAnswers.physicalActivity = questionnaireData?.physicalActivity || dbProfile?.physical_activity;
+          }
+          if (questionnaireData?.sleepingHabits || dbProfile?.sleeping_habits) {
+            previousAnswers.sleepingHabits = questionnaireData?.sleepingHabits || dbProfile?.sleeping_habits;
+          }
+          if (questionnaireData?.skinTreatment || dbProfile?.skin_treatment) {
+            previousAnswers.skinTreatment = questionnaireData?.skinTreatment || dbProfile?.skin_treatment;
+          }
+          
+          // Legacy fields (optional)
+          if (questionnaireData?.profession || dbProfile?.profession) {
+            previousAnswers.profession = questionnaireData?.profession || dbProfile?.profession;
+          }
+          if (questionnaireData?.workingHours || dbProfile?.workingTime) {
+            previousAnswers.workingHours = questionnaireData?.workingHours || dbProfile?.workingTime;
+          }
+          if (questionnaireData?.workStress || dbProfile?.workStress) {
+            previousAnswers.workStress = questionnaireData?.workStress || dbProfile?.workStress;
+          }
+          if (questionnaireData?.smoking || dbProfile?.smoking) {
+            previousAnswers.smoking = questionnaireData?.smoking || dbProfile?.smoking;
+          }
+          if (questionnaireData?.waterQuality || dbProfile?.water_quality) {
+            previousAnswers.waterQuality = questionnaireData?.waterQuality || dbProfile?.water_quality;
+          }
+          if (questionnaireData?.acUsage || dbProfile?.ac_usage) {
+            previousAnswers.acUsage = questionnaireData?.acUsage || dbProfile?.ac_usage;
+          }
+          
+          // Demographic fields
+          if (questionnaireData?.gender || dbProfile?.gender) {
+            previousAnswers.gender = questionnaireData?.gender || dbProfile?.gender;
+          }
+          if (questionnaireData?.birthdate || dbProfile?.birthdate || dbProfile?.date_of_birth) {
+            previousAnswers.birthdate = questionnaireData?.birthdate || dbProfile?.birthdate || dbProfile?.date_of_birth;
+          }
+          if (questionnaireData?.city || dbProfile?.city) {
+            previousAnswers.city = questionnaireData?.city || dbProfile?.city;
+          }
+          if (questionnaireData?.state || dbProfile?.state) {
+            previousAnswers.state = questionnaireData?.state || dbProfile?.state;
+          }
+          
+          // Only set answers if we have at least some actual data
+          if (Object.keys(previousAnswers).length > 0) {
+            setQuestionnaireAnswers(previousAnswers as QuestionnaireAnswers);
+            console.log('📋 Loaded existing questionnaire answers for user:', user.id, previousAnswers);
+          } else {
+            setQuestionnaireAnswers(null);
+            console.log('📋 hasActualQuestionnaireData was true but no actual values found - starting fresh for user:', user.id);
+          }
+        } else {
+          // Clear answers for new users without any previous questionnaire data
+          setQuestionnaireAnswers(null);
+          console.log('📋 No previous questionnaire data found - starting fresh for user:', user.id);
+        }
         
         // Check if user has all required demographic data
         const hasAllDemographicData = 
-          user.gender && 
-          (user.birthdate || user.date_of_birth) && 
-          user.city && 
-          user.state && 
-          user.country;
+          (user as any).gender && 
+          ((user as any).birthdate || (user as any).date_of_birth) && 
+          (user as any).city && 
+          (user as any).state && 
+          (user as any).country;
         
-        // Check for all analysis history
-        const { data, error } = await supabase
+        // Check for all analysis history - ensure we only load THIS user's history
+        const { data: analysisData, error: analysisError } = await supabase
           .from('analysis_history')
           .select('id, created_at, analysis_result')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(20);
 
-        if (data && data.length > 0) {
+        if (analysisError) {
+          console.error('Error loading analysis history:', analysisError);
+        }
+
+        if (analysisData && analysisData.length > 0) {
           setHasAnalysisHistory(true);
-          setAllAnalyses(data);
-          setRecentReport(data[0].analysis_result);
+          setAllAnalyses(analysisData);
+          setRecentReport(analysisData[0].analysis_result);
           
-          // Extract previous questionnaire answers from last analysis
-          const lastUserData = data[0].analysis_result.userData;
-          if (lastUserData) {
-            const previousAnswers: QuestionnaireAnswers = {
-              profession: lastUserData.profession || '',
-              workingHours: lastUserData.workingTime || '',
-              smoking: lastUserData.smoking || 'non-smoker',
-              waterQuality: lastUserData.waterQuality || 'good',
-              acUsage: lastUserData.acUsage || 'no'
-            };
-            setQuestionnaireAnswers(previousAnswers);
-            console.log('📋 Loaded previous questionnaire answers from last analysis');
+          // Only extract previous questionnaire answers from THIS user's last analysis
+          // Don't override if we already have questionnaire_history data
+          // Only set if questionnaireAnswers is still null (no previous data loaded)
+          if (!questionnaireData && !questionnaireAnswers) {
+            const lastUserData = analysisData[0].analysis_result?.userData;
+            if (lastUserData && analysisData[0].analysis_result) {
+              // Build from actual analysis data - these are from a completed analysis so defaults are okay
+              // But only include fields that exist in the analysis data
+              const previousAnswers: Partial<QuestionnaireAnswers> = {};
+              
+              if ((lastUserData as any).primarySkinConcern) {
+                previousAnswers.primarySkinConcern = Array.isArray((lastUserData as any).primarySkinConcern)
+                  ? (lastUserData as any).primarySkinConcern
+                  : [(lastUserData as any).primarySkinConcern];
+              }
+              if ((lastUserData as any).skinType) previousAnswers.skinType = (lastUserData as any).skinType;
+              if ((lastUserData as any).skinTone) previousAnswers.skinTone = (lastUserData as any).skinTone;
+              if ((lastUserData as any).glow) previousAnswers.glow = (lastUserData as any).glow;
+              if ((lastUserData as any).middaySkinFeel) previousAnswers.middaySkinFeel = (lastUserData as any).middaySkinFeel;
+              if ((lastUserData as any).sunscreenUsage) previousAnswers.sunscreenUsage = (lastUserData as any).sunscreenUsage;
+              if ((lastUserData as any).physicalActivity) previousAnswers.physicalActivity = (lastUserData as any).physicalActivity;
+              if ((lastUserData as any).sleepingHabits) previousAnswers.sleepingHabits = (lastUserData as any).sleepingHabits;
+              if ((lastUserData as any).skinTreatment) previousAnswers.skinTreatment = (lastUserData as any).skinTreatment;
+              if (lastUserData.profession) previousAnswers.profession = lastUserData.profession;
+              if (lastUserData.workingTime) previousAnswers.workingHours = lastUserData.workingTime;
+              if (lastUserData.workStress) previousAnswers.workStress = lastUserData.workStress;
+              if (lastUserData.smoking) previousAnswers.smoking = lastUserData.smoking;
+              if (lastUserData.waterQuality) previousAnswers.waterQuality = lastUserData.waterQuality;
+              if (lastUserData.acUsage) previousAnswers.acUsage = lastUserData.acUsage;
+              if (lastUserData.gender) previousAnswers.gender = lastUserData.gender;
+              if (lastUserData.birthdate) previousAnswers.birthdate = lastUserData.birthdate;
+              if (lastUserData.city) previousAnswers.city = lastUserData.city;
+              if (lastUserData.state) previousAnswers.state = lastUserData.state;
+              
+              // Only set if we have actual data
+              if (Object.keys(previousAnswers).length > 0) {
+                setQuestionnaireAnswers(previousAnswers as QuestionnaireAnswers);
+                console.log('📋 Loaded previous questionnaire answers from last analysis for user:', user.id);
+              }
+            }
           }
         } else {
           setHasAnalysisHistory(false);
         }
         
-        if (error && error.code !== 'PGRST116') {
-          console.error("Error fetching recent analysis:", error);
+        // If no answers from analysis, try latest questionnaire_history snapshot
+        if (!questionnaireAnswers) {
+          const { data: qh } = await supabase
+            .from('questionnaire_history')
+            .select('questionnaire_data')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (qh?.questionnaire_data) {
+            setQuestionnaireAnswers(qh.questionnaire_data as QuestionnaireAnswers);
+            console.log('📋 Loaded previous questionnaire answers from questionnaire_history');
+          }
         }
-        
-        // Set initial mode based on history (check data directly, not state)
-        if (data && data.length > 0) {
-          // Has history - show menu with options
-          setLocalMode('menu');
-        } else {
-          // No history - start MCQ directly
-          setLocalMode('mcq');
-        }
+
+        // Always start with MCQ directly (menu cards are hidden)
+        setLocalMode('mcq');
       }
       setLoadingProfile(false);
     };
@@ -92,18 +280,17 @@ const KnowYourSkinPage = () => {
     const base = import.meta.env.VITE_KNOW_YOUR_SKIN_URL || "";
     let params = new URLSearchParams();
     try {
-      const raw = localStorage.getItem('karma-terra-user');
-      if (raw) {
-        const u = JSON.parse(raw);
-        if (u.name) params.set('name', u.name);
-        if (u.gender) params.set('gender', u.gender);
-        if (u.birthdate) {
-          const years = Math.floor((Date.now() - new Date(u.birthdate).getTime()) / (365.25*24*60*60*1000));
+      if (user) {
+        if (user.name) params.set('name', user.name);
+        if ((user as any).gender) params.set('gender', (user as any).gender);
+        const b = (user as any).birthdate || (user as any).date_of_birth;
+        if (b) {
+          const years = Math.floor((Date.now() - new Date(b).getTime()) / (365.25*24*60*60*1000));
           if (!isNaN(years)) params.set('age', String(years));
         }
-        if (u.country) params.set('country', u.country);
-        if (u.state) params.set('state', u.state);
-        if (u.city) params.set('city', u.city);
+        if ((user as any).country) params.set('country', (user as any).country);
+        if ((user as any).state) params.set('state', (user as any).state);
+        if ((user as any).city) params.set('city', (user as any).city);
       }
     } catch {}
     // Start step based on local mode when using local fallback, else default to MCQ
@@ -122,33 +309,14 @@ const KnowYourSkinPage = () => {
     setLocalMode('analyzing');
 
     try {
-      // Update user profile with any demographic data collected from questionnaire
+      // Persist only demographic fields that we know exist in profiles
       const profileUpdates: any = {};
-      let needsUpdate = false;
+      if (questionnaireAnswers.gender) profileUpdates.gender = questionnaireAnswers.gender;
+      if (questionnaireAnswers.birthdate) profileUpdates.birthdate = questionnaireAnswers.birthdate;
+      if (questionnaireAnswers.city) profileUpdates.city = questionnaireAnswers.city;
+      if (questionnaireAnswers.state) profileUpdates.state = questionnaireAnswers.state;
 
-      if (questionnaireAnswers.gender && !userProfile.gender) {
-        profileUpdates.gender = questionnaireAnswers.gender;
-        needsUpdate = true;
-      }
-      if (questionnaireAnswers.birthdate && !userProfile.birthdate && !userProfile.date_of_birth) {
-        profileUpdates.birthdate = questionnaireAnswers.birthdate;
-        needsUpdate = true;
-      }
-      if (questionnaireAnswers.city && !userProfile.city) {
-        profileUpdates.city = questionnaireAnswers.city;
-        needsUpdate = true;
-      }
-      if (questionnaireAnswers.state && !userProfile.state) {
-        profileUpdates.state = questionnaireAnswers.state;
-        needsUpdate = true;
-      }
-      if (questionnaireAnswers.country && !userProfile.country) {
-        profileUpdates.country = questionnaireAnswers.country;
-        needsUpdate = true;
-      }
-
-      // Save demographic updates to database and localStorage
-      if (needsUpdate && userProfile.id) {
+      if (userProfile.id) {
         console.log('💾 SAVING DEMOGRAPHIC DATA TO SUPABASE');
         console.log('  User ID:', userProfile.id);
         console.log('  Updates:', profileUpdates);
@@ -163,26 +331,28 @@ const KnowYourSkinPage = () => {
         } else {
           console.log('✅ Profile updated successfully in Supabase');
           
-          // Update local user profile
+          // Update local state with persisted values
           const updatedProfile = { ...userProfile, ...profileUpdates };
           setUserProfile(updatedProfile);
-          
-          // Update localStorage
-          localStorage.setItem('karma-terra-user', JSON.stringify(updatedProfile));
-          
-          console.log('✅ Local storage updated');
-          console.log('📊 Updated profile:', updatedProfile);
+          console.log('📊 Updated profile (state):', updatedProfile);
         }
-      } else if (!needsUpdate) {
-        console.log('ℹ️ No demographic data updates needed - all fields already present');
       }
 
-      const birthdate = questionnaireAnswers.birthdate || userProfile.birthdate || userProfile.date_of_birth;
+      const birthdate = questionnaireAnswers.birthdate || (userProfile as any).birthdate || (userProfile as any).date_of_birth;
       if (!birthdate) {
         throw new Error("Birthdate is missing from user profile.");
       }
       
-      const age = Math.floor((Date.now() - new Date(birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      const parseBirthdate = (b: string) => {
+        // Support ISO (YYYY-MM-DD) or DD/MM/YYYY
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(b)) {
+          const [dd, mm, yyyy] = b.split('/').map(Number);
+          return new Date(yyyy, mm - 1, dd);
+        }
+        return new Date(b);
+      };
+      const bd = parseBirthdate(birthdate);
+      const age = Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
 
       const userDataForApi: UserData = {
         name: userProfile.name || 'Anonymous',
@@ -190,14 +360,35 @@ const KnowYourSkinPage = () => {
         gender: questionnaireAnswers.gender || userProfile.gender,
         city: questionnaireAnswers.city || userProfile.city,
         state: questionnaireAnswers.state || userProfile.state,
-        country: questionnaireAnswers.country || userProfile.country,
+        country: (userProfile as any).country,
         profession: questionnaireAnswers.profession,
         workingTime: questionnaireAnswers.workingHours,
         acUsage: questionnaireAnswers.acUsage,
         smoking: questionnaireAnswers.smoking,
         waterQuality: questionnaireAnswers.waterQuality,
+      } as unknown as UserData & { 
+        workStress?: string;
+        primarySkinConcern?: string;
+        skinType?: string;
+        middaySkinFeel?: string;
+        sunscreenUsage?: string;
+        physicalActivity?: string;
+        sleepingHabits?: string;
+        skinTreatment?: string;
       };
+      (userDataForApi as any).workStress = (questionnaireAnswers as any).workStress || 'Medium';
+      // Add new skin-specific fields
+      (userDataForApi as any).primarySkinConcern = questionnaireAnswers.primarySkinConcern;
+      (userDataForApi as any).skinType = questionnaireAnswers.skinType;
+      (userDataForApi as any).skinTone = questionnaireAnswers.skinTone;
+      (userDataForApi as any).glow = questionnaireAnswers.glow;
+      (userDataForApi as any).middaySkinFeel = questionnaireAnswers.middaySkinFeel;
+      (userDataForApi as any).sunscreenUsage = questionnaireAnswers.sunscreenUsage;
+      (userDataForApi as any).physicalActivity = questionnaireAnswers.physicalActivity;
+      (userDataForApi as any).sleepingHabits = questionnaireAnswers.sleepingHabits;
+      (userDataForApi as any).skinTreatment = questionnaireAnswers.skinTreatment;
 
+      console.log('🧩 Sending user data to AI:', userDataForApi);
       const result = await analyzeSkin(userDataForApi, images);
 
       const report: Report = {
@@ -214,6 +405,7 @@ const KnowYourSkinPage = () => {
         .insert({
           user_id: userProfile.id,
           analysis_result: report,
+          analysis_type: 'skin'
         })
         .select()
         .single();
@@ -229,8 +421,28 @@ const KnowYourSkinPage = () => {
       navigate('/skin-analysis-results', { state: { report: finalReport } });
 
     } catch (err) {
-      console.error("Analysis failed:", err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred during analysis.";
+      console.error("❌ Analysis failed:", err);
+      
+      let errorMessage = "An unknown error occurred during analysis.";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        
+        // Provide more helpful error messages for specific cases
+        if (err.message.includes('429') || 
+            err.message.includes('Resource exhausted') || 
+            err.message.includes('rate limit') ||
+            err.message.includes('at capacity')) {
+          errorMessage = "AI service is currently at capacity. Please wait a few minutes and try again. Our API has reached its rate limit for now.";
+        } else if (err.message.includes("API")) {
+          errorMessage = "AI service temporarily unavailable. Please try again in a few moments.";
+        } else if (err.message.includes("image") || err.message.includes("Image")) {
+          errorMessage = "Image processing error. Please capture the photos again.";
+        } else if (err.message.includes("parse") || err.message.includes("JSON")) {
+          errorMessage = "Analysis response error. Please try again.";
+        }
+      }
+      
       setError(errorMessage);
       setLocalMode('error');
     }
@@ -238,7 +450,11 @@ const KnowYourSkinPage = () => {
 
   const renderContent = () => {
     if (loadingProfile) {
-      return <p>Loading user profile...</p>;
+      return (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
     }
 
     switch (localMode) {
@@ -345,160 +561,135 @@ const KnowYourSkinPage = () => {
           </div>
         );
       case 'menu':
-        return (
-          <div className="space-y-6">
-            <div className="text-center mb-8 bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-2">Choose an Option</h2>
-              <p className="text-gray-600">Select what you'd like to do with your skin analysis</p>
-            </div>
-
-            <div className="grid gap-5">
-              {/* View Recent History - Only show if user has analysis */}
-              {hasAnalysisHistory && (
-                <button
-                  onClick={() => setLocalMode('history')}
-                  className="bg-white/90 backdrop-blur-sm border-2 border-blue-400 rounded-2xl p-6 hover:bg-blue-50 transition-all shadow-lg hover:shadow-xl group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                      <History className="w-8 h-8 text-blue-600" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">View Analysis History</h3>
-                      <p className="text-sm text-gray-600">
-                        {allAnalyses.length} analysis report{allAnalyses.length > 1 ? 's' : ''} available
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">Browse and select any report to view</p>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Edit MCQ - Only show if user has questionnaire answers */}
-              {questionnaireAnswers && (
-                <button
-                  onClick={() => setLocalMode('mcq')}
-                  className="bg-white/90 backdrop-blur-sm border-2 border-orange-400 rounded-2xl p-6 hover:bg-orange-50 transition-all shadow-lg hover:shadow-xl group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-                      <Edit className="w-8 h-8 text-orange-600" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">Edit Questionnaire</h3>
-                      <p className="text-sm text-gray-600">
-                        Update your lifestyle and demographic information
-                      </p>
-                      <p className="text-xs text-orange-600 mt-1">Keep your profile up to date</p>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Track Progress - Only show if user has history */}
-              {hasAnalysisHistory && (
-                <button
-                  onClick={() => navigate('/progress-tracking')}
-                  className="bg-white/90 backdrop-blur-sm border-2 border-purple-400 rounded-2xl p-6 hover:bg-purple-50 transition-all shadow-lg hover:shadow-xl group"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                      <LoaderCircle className="w-8 h-8 text-purple-600" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">Track Progress</h3>
-                      <p className="text-sm text-gray-600">
-                        Compare your skin improvements over time
-                      </p>
-                      <p className="text-xs text-purple-600 mt-1">View detailed progress reports</p>
-                    </div>
-                  </div>
-                </button>
-              )}
-
-              {/* Start New Analysis */}
-              <button
-                onClick={() => {
-                  // Check if user has questionnaire answers from previous analysis
-                  // If no previous answers, must go through MCQ first
-                  if (questionnaireAnswers) {
-                    // Has previous answers, can skip to camera
-                    setLocalMode('camera');
-                  } else {
-                    // No previous answers, must complete questionnaire
-                    setLocalMode('mcq');
-                  }
-                }}
-                className="bg-gradient-to-r from-green-500 to-green-600 border-2 border-green-600 rounded-2xl p-6 hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl group"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                    <Camera className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <h3 className="text-xl font-bold text-white mb-1">Start New Analysis</h3>
-                    <p className="text-sm text-white/90">
-                      {hasAnalysisHistory ? 'Take new photos and get updated results' : 'Begin your skin analysis journey'}
-                    </p>
-                    <p className="text-xs text-white/80 mt-1">
-                      {questionnaireAnswers ? '✓ Skip to camera (answers saved)' : '📋 Complete questionnaire + photo capture'}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            {/* First Time User Message */}
-            {!hasAnalysisHistory && (
-              <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200 rounded-2xl shadow-lg">
-                <p className="text-sm text-green-800 text-center leading-relaxed">
-                  <strong className="text-lg">🌟 Welcome!</strong><br />
-                  Start your first analysis to unlock progress tracking and history features.
-                </p>
-              </div>
-            )}
-          </div>
-        );
+        // Menu case kept for backward compatibility but not used
+        // Directly show MCQ instead
+        return null;
       case 'mcq':
         return (
           <div className="space-y-4">
-            {/* Show back to menu button if user has history */}
-            {hasAnalysisHistory && (
-              <div className="flex items-center gap-4 mb-4">
-                <button
-                  onClick={() => setLocalMode('menu')}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <ArrowLeft className="w-6 h-6 text-gray-700" />
-                </button>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800">
-                    {questionnaireAnswers ? 'Edit Questionnaire' : 'Complete Questionnaire'}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    {questionnaireAnswers ? 'Update your information' : 'Tell us about your lifestyle'}
-                  </p>
-                </div>
-              </div>
-            )}
-            
             <Questionnaire
               userProfile={userProfile}
               existingAnswers={questionnaireAnswers}
-              onBack={() => hasAnalysisHistory ? setLocalMode('menu') : navigate('/')}
-              onComplete={(answers) => {
-                console.log('Questionnaire complete:', answers);
+              onBack={() => navigate('/')}
+              onComplete={async (answers) => {
+                console.log('Skin Questionnaire complete:', answers);
                 setQuestionnaireAnswers(answers);
                 
-                // If editing (has history), go back to menu
-                // If new user, go to camera
-                if (hasAnalysisHistory) {
-                  setLocalMode('menu');
-                } else {
-                  setLocalMode('camera');
+                // Save to Supabase profiles table and questionnaire_history
+                try {
+                  if (user?.id) {
+                    const profileUpdates: any = {
+                      // Ensure primary_skin_concern is always an array for JSONB
+                      primary_skin_concern: Array.isArray(answers.primarySkinConcern) 
+                        ? answers.primarySkinConcern 
+                        : (answers.primarySkinConcern ? [answers.primarySkinConcern] : ['Aging']),
+                    };
+                    
+                    // Add skin-specific fields only if they have values
+                    if (answers.skinType) profileUpdates.skin_type = answers.skinType;
+                    if (answers.skinTone) profileUpdates.skin_tone = answers.skinTone;
+                    if (answers.glow) profileUpdates.glow = answers.glow;
+                    if (answers.middaySkinFeel) profileUpdates.midday_skin_feel = answers.middaySkinFeel;
+                    if (answers.sunscreenUsage) profileUpdates.sunscreen_usage = answers.sunscreenUsage;
+                    if (answers.physicalActivity) profileUpdates.physical_activity = answers.physicalActivity;
+                    if (answers.sleepingHabits) profileUpdates.sleeping_habits = answers.sleepingHabits;
+                    if (answers.skinTreatment) profileUpdates.skin_treatment = answers.skinTreatment;
+                    
+                    // Legacy fields (optional) - use correct column names
+                    if (answers.profession && answers.profession.trim()) profileUpdates.profession = answers.profession.trim();
+                    if (answers.workingHours && answers.workingHours.trim()) profileUpdates.working_time = answers.workingHours.trim();
+                    if (answers.acUsage && answers.acUsage.trim()) profileUpdates.ac_usage = answers.acUsage.trim();
+                    if (answers.smoking) profileUpdates.smoking = answers.smoking;
+                    if (answers.waterQuality) profileUpdates.water_quality = answers.waterQuality;
+
+                    // Also update demographic fields if provided
+                    if (answers.gender) profileUpdates.gender = answers.gender;
+                    if (answers.birthdate) profileUpdates.birthdate = answers.birthdate;
+                    if (answers.city && answers.city.trim()) profileUpdates.city = answers.city.trim();
+                    if (answers.state && answers.state.trim()) profileUpdates.state = answers.state.trim();
+                    
+                    // Filter out null, undefined, or empty string values before sending to Supabase
+                    const filteredProfileUpdates: any = {};
+                    Object.keys(profileUpdates).forEach(key => {
+                      const value = profileUpdates[key];
+                      if (value !== null && value !== undefined && value !== '') {
+                        filteredProfileUpdates[key] = value;
+                      }
+                    });
+                    
+                    console.log('📝 Profile updates to save:', filteredProfileUpdates);
+
+                    // Only update if there are actual values to update
+                    if (Object.keys(filteredProfileUpdates).length > 0) {
+                      // Update profiles table
+                      const { error: profileError } = await supabase
+                        .from('profiles')
+                        .update(filteredProfileUpdates)
+                        .eq('id', user.id);
+
+                      if (profileError) {
+                        console.error('❌ Failed to update profile with skin questionnaire:', profileError);
+                      } else {
+                        console.log('✅ Saved skin questionnaire answers to profiles table');
+                      }
+                    } else {
+                      console.log('⏭️ Skipping profile update - no valid values to save');
+                    }
+
+
+                    // Also save to questionnaire_history for tracking
+                    const { error: historyError } = await supabase
+                      .from('questionnaire_history')
+                      .insert({
+                        user_id: user.id,
+                        questionnaire_data: answers,
+                        questionnaire_type: 'skin'
+                      });
+
+                    if (historyError) {
+                      console.error('❌ Failed to save questionnaire history:', historyError);
+                    } else {
+                      console.log('✅ Saved skin questionnaire to questionnaire_history');
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Failed to save questionnaire data:', e);
                 }
+                // Always proceed to camera after completing questionnaire
+                setLocalMode('camera');
               }}
             />
+            {/* Collapsible AI Disclaimer */}
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl shadow-md overflow-hidden mt-4">
+              <button
+                type="button"
+                onClick={() => setShowDisclaimer(!showDisclaimer)}
+                className="w-full p-4 flex items-center justify-between hover:bg-amber-100 transition-colors min-h-[48px] text-left"
+                aria-label={showDisclaimer ? "Hide disclaimer" : "Show disclaimer"}
+                aria-expanded={showDisclaimer}
+              >
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <h3 className="font-semibold text-amber-900">AI Analysis Disclaimer</h3>
+                </div>
+                {showDisclaimer ? (
+                  <ChevronUp className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                )}
+              </button>
+              <div 
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  showDisclaimer ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-sm text-amber-900 leading-relaxed">
+                    This AI-powered skin analysis is for informational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. The analysis is based on images and questionnaire responses and may not be 100% accurate. Always consult with a qualified dermatologist or healthcare provider for skin concerns or before making significant changes to your skincare routine.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         );
       case 'camera':
@@ -515,10 +706,24 @@ const KnowYourSkinPage = () => {
         );
       case 'error':
         return (
-          <div className="text-center p-8 bg-red-50 border border-red-200 rounded-lg">
-            <h2 className="text-2xl font-bold text-red-700">Analysis Failed</h2>
-            <p className="text-red-600 mt-2">{error}</p>
-            <button onClick={() => setLocalMode('mcq')} className="mt-4 bg-red-500 text-white font-semibold py-2 px-6 rounded-full hover:bg-red-600">
+          <div className="text-center p-8 bg-amber-50 border-2 border-amber-200 rounded-xl max-w-md mx-auto">
+            <AlertCircle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-amber-900 mb-3">Analysis Temporarily Unavailable</h2>
+            <p className="text-amber-800 mt-2 leading-relaxed">{error || "An error occurred during analysis."}</p>
+            {(error?.includes('rate limit') || error?.includes('capacity') || error?.includes('429')) && (
+              <div className="mt-4 p-3 bg-amber-100 rounded-lg">
+                <p className="text-sm text-amber-900">
+                  💡 <strong>Tip:</strong> Wait 2-3 minutes before trying again. This helps avoid rate limits.
+                </p>
+              </div>
+            )}
+            <button 
+              onClick={() => {
+                setError(null);
+                setLocalMode('mcq');
+              }} 
+              className="mt-6 bg-amber-500 text-white font-semibold py-3 px-8 rounded-full hover:bg-amber-600 transition-colors min-h-[48px] min-w-[48px]"
+            >
               Try Again
             </button>
           </div>
@@ -530,17 +735,12 @@ const KnowYourSkinPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <ArrowLeft className="w-6 h-6 text-gray-700" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-800">Know Your Skin</h1>
-            <p className="text-xs text-gray-500">{useLocalMcq ? 'AI-powered analysis' : 'Embedded analysis'}</p>
-          </div>
-        </div>
-      </div>
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title="Know Your Skin"
+        subtitle={useLocalMcq ? 'AI-powered analysis' : 'Embedded analysis'}
+        backTo="/"
+      />
 
       {useLocalMcq ? (
         <div className="max-w-4xl mx-auto px-4 py-6">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Send, MessageSquare, Trash2, Menu, X } from "lucide-react";
+import { Plus, Send, MessageSquare, Trash2, Menu, X, History } from "lucide-react";
+import { AndroidPageHeader } from "../components/AndroidBackButton";
 import { useAuth } from "@/App";
 import { karmaAI, type Message as AIMessage, type Conversation } from "@/services/karmaAIService";
 import { useToast } from "@/hooks/use-toast";
@@ -291,7 +292,7 @@ Feel free to ask me anything!`,
           showSidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col safe-area-top">
           {/* Sidebar Header */}
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="font-semibold text-gray-800">Conversations</h2>
@@ -368,31 +369,22 @@ Feel free to ask me anything!`,
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowSidebar(true)}
-                className="lg:hidden text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => navigate('/')}
-                className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-800">
-                  {currentConversation ? currentConversation.title : 'Karma Terra AI'}
-                </h1>
-                <p className="text-xs text-gray-500">Your AI Beauty Assistant</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Android Material Design Header */}
+        <AndroidPageHeader
+          title={currentConversation ? currentConversation.title : 'Karma Terra AI'}
+          subtitle="Your AI Beauty Assistant"
+          backTo="/"
+          rightContent={
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="text-gray-600 hover:bg-gray-100 p-2 rounded-lg min-h-[48px] min-w-[48px] flex items-center justify-center transition-colors"
+              aria-label="Open chat history"
+              title="Chat history"
+            >
+              <History className="w-6 h-6" strokeWidth={2} />
+            </button>
+          }
+        />
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -438,7 +430,7 @@ Feel free to ask me anything!`,
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                   </div>
-                  <span className="text-sm text-gray-600">Karma Terra is thinking...</span>
+                  <span className="text-sm text-gray-600">Karma is thinking...</span>
                 </div>
               </div>
             </div>
@@ -448,7 +440,7 @@ Feel free to ask me anything!`,
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
+        <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white safe-area-bottom content-safe-area">
           <div className="flex items-end gap-3 max-w-4xl mx-auto">
             <div className="flex-1">
               <textarea

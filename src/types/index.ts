@@ -21,7 +21,7 @@ export interface LoginResult {
 
 export interface AuthContextType {
   user: User | null;
-  login: (pin: string, name?: string, email?: string, gender?: string, birthdate?: string, country?: string, state?: string, city?: string, country_code?: string, phone_number?: string) => Promise<LoginResult>;
+  login: (pin: string, phone_number: string, name?: string, email?: string, gender?: string, birthdate?: string, country?: string, state?: string, city?: string, isSignUpMode?: boolean) => Promise<LoginResult>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<User>) => Promise<void>;
 }
@@ -70,6 +70,7 @@ export interface UserData {
   country: string;
   profession: string;
   workingTime: string; // Renamed from workingHours for consistency
+  workStress?: string;
   acUsage: string;
   smoking: string;
   waterQuality: string;

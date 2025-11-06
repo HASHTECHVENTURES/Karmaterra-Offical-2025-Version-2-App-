@@ -1,13 +1,11 @@
 export const SKIN_PARAMETERS = [
-  'Pigmentation',
-  'Uneven Skin Tone',
-  'Anti Ageing',
-  'Tan Removal',
+  'Skin Type',            // Dry | Oily | Normal | Combination
+  'Skin Tone',
+  'Glow',
+  'Ageing',
   'Dark Spots',
-  'Dryness',
-  'Sebum Control',
-  'Fine Lines',
-  'Crow\'s Feet',
   'Under Eye',
-  'Brightening'
+  'Lines & Wrinkles',
+  'Tan',
+  'Pigmentation'
 ];

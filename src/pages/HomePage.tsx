@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Menu, Star, Scissors, Leaf, Users, Home, ShoppingBag, User, LogOut, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/App";
 import { supabase } from "@/lib/supabase";
+import { Browser } from "@capacitor/browser";
 
 const HomePage = () => {
   const { user, signOut } = useAuth();
@@ -91,8 +92,13 @@ const HomePage = () => {
     }
   }, [blogs.length]);
 
-  const handleProductClick = (product: any) => {
-    setSelectedProduct(product);
+  const handleProductClick = async (product: any) => {
+    try {
+      await Browser.open({ url: product.link });
+    } catch (e) {
+      console.warn('Browser.open failed, falling back to in-app view', e);
+      setSelectedProduct(product);
+    }
   };
 
   const handleProductBackClick = () => {
@@ -118,6 +124,11 @@ const HomePage = () => {
   // Touch/swipe functionality for blogs
   const [blogTouchStart, setBlogTouchStart] = useState<number | null>(null);
   const [blogTouchEnd, setBlogTouchEnd] = useState<number | null>(null);
+  // Drawer swipe handling
+  const [drawerTouchStartX, setDrawerTouchStartX] = useState<number | null>(null);
+  const [drawerTouchEndX, setDrawerTouchEndX] = useState<number | null>(null);
+  const [edgeTouchStartX, setEdgeTouchStartX] = useState<number | null>(null);
+  const [edgeTouchEndX, setEdgeTouchEndX] = useState<number | null>(null);
 
   const minSwipeDistance = 50;
 
@@ -180,37 +191,73 @@ const HomePage = () => {
     }
   };
 
+  // Drawer swipe handlers (close on left swipe)
+  const onDrawerTouchStart = (e: React.TouchEvent) => {
+    setDrawerTouchEndX(null);
+    setDrawerTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const onDrawerTouchMove = (e: React.TouchEvent) => {
+    setDrawerTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const onDrawerTouchEnd = () => {
+    if (!drawerTouchStartX || drawerTouchEndX === null) return;
+    const distance = drawerTouchEndX - drawerTouchStartX; // negative = left swipe
+    if (distance < -minSwipeDistance) {
+      setIsMenuOpen(false);
+    }
+  };
+
+  // Edge swipe to open drawer (right swipe from left edge)
+  const onEdgeTouchStart = (e: React.TouchEvent) => {
+    setEdgeTouchEndX(null);
+    setEdgeTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const onEdgeTouchMove = (e: React.TouchEvent) => {
+    setEdgeTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const onEdgeTouchEnd = () => {
+    if (!edgeTouchStartX || edgeTouchEndX === null) return;
+    const distance = edgeTouchEndX - edgeTouchStartX; // positive = right swipe
+    if (distance > minSwipeDistance) {
+      setIsMenuOpen(true);
+    }
+  };
+
   const services = [
-    {
-      title: "Know Your Skin",
-      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/ec8d32dd-cf00-4a0d-93bd-64307bab4bef-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy9lYzhkMzJkZC1jZjAwLTRhMGQtOTNiZC02NDMwN2JhYjRiZWYtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTc5NDMsImV4cCI6NjYyNTI5Mzc5NDN9.-tl5ce8D_UakU395AaLe0omfi5oXOZQkk3lKIcuFH5A" alt="Know Your Skin" className="w-6 h-6 object-contain" />,
-      bgColor: "bg-gradient-to-br from-green-100 to-green-200",
-      iconBg: "bg-green-500",
-      textColor: "text-green-700",
+        {
+          title: "Know Your Skin",
+          icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/ec8d32dd-cf00-4a0d-93bd-64307bab4bef-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy9lYzhkMzJkZC1jZjAwLTRhMGQtOTNiZC02NDMwN2JhYjRiZWYtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTc5NDMsImV4cCI6NjYyNTI5Mzc5NDN9.-tl5ce8D_UakU395AaLe0omfi5oXOZQkk3lKIcuFH5A" alt="Know Your Skin" className="w-8 h-8 object-contain filter invert brightness-150" />,
+      bgColor: "bg-gradient-to-br from-orange-100 to-orange-200",
+      iconBg: "bg-orange-500",
+      textColor: "text-orange-700",
       onClick: () => navigate("/know-your-skin")
     },
-    {
-      title: "Know Your Hair",
-      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1dec4eca-3cf7-4ae8-92e6-baf368a43342-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xZGVjNGVjYS0zY2Y3LTRhZTgtOTJlNi1iYWYzNjhhNDMzNDItcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgxMjUsImV4cCI6NjY0MTA2MTgxMjV9.1TWqdqbHTJSOkyIw8EMQLpn2EPgYvXwSzHRP7odhTEw" alt="Know Your Hair" className="w-6 h-6 object-contain" />,
-      bgColor: "bg-gradient-to-br from-purple-100 to-purple-200",
-      iconBg: "bg-purple-500",
-      textColor: "text-purple-700",
+        {
+          title: "Know Your Hair",
+          icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1dec4eca-3cf7-4ae8-92e6-baf368a43342-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xZGVjNGVjYS0zY2Y3LTRhZTgtOTJlNi1iYWYzNjhhNDMzNDItcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgxMjUsImV4cCI6NjY0MTA2MTgxMjV9.1TWqdqbHTJSOkyIw8EMQLpn2EPgYvXwSzHRP7odhTEw" alt="Know Your Hair" className="w-8 h-8 object-contain filter invert brightness-150" />,
+      bgColor: "bg-gradient-to-br from-indigo-100 to-indigo-200",
+      iconBg: "bg-indigo-500",
+      textColor: "text-indigo-700",
       onClick: () => navigate("/hair-analysis")
     },
     {
       title: "Ask Karma",
       icon: <Leaf className="w-6 h-6" />,
-      bgColor: "bg-gradient-to-br from-green-100 to-green-200",
-      iconBg: "bg-green-500",
-      textColor: "text-green-700",
+          bgColor: "bg-gradient-to-br from-green-100 to-green-200",
+          iconBg: "bg-green-500",
+          textColor: "text-green-700",
       onClick: () => navigate("/ask-karma")
     },
-    {
-      title: "Community",
-      icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1538a485-a313-4adb-9e57-a0a25659c63c-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xNTM4YTQ4NS1hMzEzLTRhZGItOWU1Ny1hMGEyNTY1OWM2M2MtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgyNzksImV4cCI6NjYwOTUyNTgyNzl9.RDscj4vxpoPKgeidh7Edefftv7Bib4ptdGbAfY_zubs" alt="Community" className="w-6 h-6 object-contain" />,
-      bgColor: "bg-gradient-to-br from-orange-100 to-orange-200",
-      iconBg: "bg-orange-500",
-      textColor: "text-orange-700",
+        {
+          title: "Community",
+          icon: <img src="https://aagehceioskhyxvtolfz.supabase.co/storage/v1/object/sign/karmaterra%20images/1538a485-a313-4adb-9e57-a0a25659c63c-removebg-preview.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kNmYwODA2Zi1lZjNiLTRjNjUtODc5ZC1kNzMyOWM4MmM2Y2YiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJrYXJtYXRlcnJhIGltYWdlcy8xNTM4YTQ4NS1hMzEzLTRhZGItOWU1Ny1hMGEyNTY1OWM2M2MtcmVtb3ZlYmctcHJldmlldy5wbmciLCJpYXQiOjE3NjE4MTgyNzksImV4cCI6NjYwOTUyNTgyNzl9.RDscj4vxpoPKgeidh7Edefftv7Bib4ptdGbAfY_zubs" alt="Community" className="w-8 h-8 object-contain filter invert brightness-150" />,
+      bgColor: "bg-gradient-to-br from-teal-100 to-teal-200",
+      iconBg: "bg-teal-500",
+      textColor: "text-teal-700",
       onClick: () => navigate("/community")
     }
   ];
@@ -219,7 +266,7 @@ const HomePage = () => {
     return (
       <div className="min-h-screen bg-white">
         {/* Navigation Header */}
-        <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40 safe-area-top">
+        <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40 header-safe-area">
           <div className="max-w-md mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <button
@@ -246,7 +293,7 @@ const HomePage = () => {
             className="w-full h-full border-0"
             title={selectedProduct.name}
             allow="payment; camera; microphone; geolocation"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-top-navigation-by-user-activation"
           />
         </div>
       </div>
@@ -255,8 +302,8 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 safe-area-top nav-safe-area">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 header-safe-area">
         <button 
           onClick={() => setIsMenuOpen(true)}
           aria-label="Open menu"
@@ -264,11 +311,11 @@ const HomePage = () => {
         >
           <Menu className="w-6 h-6 text-gray-600" />
         </button>
-        <div className="flex-1 flex justify-center">
+            <div className="flex-1 flex justify-center items-center">
           <img 
-            src="/lovable-uploads/223eca30-a4ce-4252-8a09-b59de0313219.png" 
-            alt="Karma Terra Logo"
-            className="w-8 h-8"
+            src="/app-icon.png" 
+            alt="KarmaTerra App Icon"
+                className="h-16 w-auto object-contain"
           />
         </div>
         <div className="w-6"></div> {/* Spacer to balance the hamburger menu */}
@@ -339,8 +386,8 @@ const HomePage = () => {
               onClick={service.onClick}
               className={`${service.bgColor} rounded-2xl p-6 text-center`}
             >
-              <div className={`${service.iconBg} w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3`}>
-                <div className="text-white">
+              <div className={`${service.iconBg} ${service.title === "Ask Karma" ? "w-12 h-12" : "w-16 h-16"} rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                <div className="text-white brightness-150">
                   {service.icon}
                 </div>
               </div>
@@ -399,10 +446,25 @@ const HomePage = () => {
       )}
 
       {/* Side Menu */}
+      {/* Edge swipe zone to open drawer */}
+      {!isMenuOpen && (
+        <div
+          className="fixed left-0 top-0 h-full w-3 z-40"
+          onTouchStart={onEdgeTouchStart}
+          onTouchMove={onEdgeTouchMove}
+          onTouchEnd={onEdgeTouchEnd}
+        />
+      )}
+
       {isMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsMenuOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-80 bg-white shadow-xl">
+          <div
+            className="absolute left-0 top-0 h-full w-80 bg-white shadow-xl safe-area-top"
+            onTouchStart={onDrawerTouchStart}
+            onTouchMove={onDrawerTouchMove}
+            onTouchEnd={onDrawerTouchEnd}
+          >
             <div className="p-4">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-bold text-gray-800">Menu</h2>
@@ -438,7 +500,7 @@ const HomePage = () => {
                   <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center mr-3">
                     <ShoppingBag className="w-4 h-4 text-white" />
                   </div>
-                  Market
+                      Shop
                 </button>
                 <button 
                   onClick={() => {
@@ -465,6 +527,11 @@ const HomePage = () => {
                   </div>
                   Sign Out
                 </button>
+                    <div className="pt-3 mt-3 border-t border-gray-200 text-xs text-gray-600">
+                      <p>
+                        Read our <button onClick={() => { setIsMenuOpen(false); navigate('/terms'); }} className="underline">Terms & Conditions</button> and <button onClick={() => { setIsMenuOpen(false); navigate('/privacy'); }} className="underline">Data Privacy Policy</button>.
+                      </p>
+                    </div>
               </div>
             </div>
           </div>

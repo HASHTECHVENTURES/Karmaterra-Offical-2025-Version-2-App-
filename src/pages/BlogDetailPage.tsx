@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clock, User, Calendar, Share2, Heart } from "lucide-react";
+import { Clock, User, Calendar, Share2, Heart } from "lucide-react";
+import { AndroidPageHeader } from "../components/AndroidBackButton";
 import { supabase } from "@/lib/supabase";
 
 const BlogDetailPage = () => {
@@ -94,43 +95,34 @@ const BlogDetailPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/')}
-              className="text-gray-600 hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-800">Blog</h1>
-          </div>
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title={post?.title || "Blog Post"}
+        onBack={() => navigate(-1)}
+        rightContent={
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={handleLike}
-              className={`text-gray-600 hover:bg-gray-100 ${liked ? 'text-red-500' : ''}`}
+              className={`p-2 rounded-full transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center ${
+                liked ? 'text-red-500' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              aria-label="Like this post"
             >
               <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
+            </button>
+            <button
               onClick={handleShare}
-              className="text-gray-600 hover:bg-gray-100"
+              className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center"
+              aria-label="Share this post"
             >
               <Share2 className="w-5 h-5" />
-            </Button>
+            </button>
           </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-4 pb-20">
+        }
+      />
+      
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Blog post content */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Hero Image */}
           <div className="aspect-[16/9] overflow-hidden">

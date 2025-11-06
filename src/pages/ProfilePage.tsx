@@ -4,99 +4,145 @@ import { useAuth } from "@/App";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
-import { User, LogOut, ArrowLeft } from "lucide-react";
+import { User } from "lucide-react";
+import { AndroidPageHeader } from "../components/AndroidBackButton";
+import { supabase } from "@/lib/supabase";
 
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { user, updateProfile, signOut } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, updateProfile } = useAuth();
+  const [isEditing, setIsEditing] = useState(true);
   const [name, setName] = useState(user?.name || "");
-  const [pin, setPin] = useState("");
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone_number || "");
+  const [gender, setGender] = useState(user?.gender || "");
+  const [birthdate, setBirthdate] = useState(user?.birthdate || "");
+  const [country, setCountry] = useState(user?.country || "");
+  const [stateName, setStateName] = useState(user?.state || "");
+  const [city, setCity] = useState(user?.city || "");
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
 
-  const handleSave = () => {
-    if (name.trim() && (pin.length === 4 || pin.length === 0)) {
-      updateProfile({ 
+  const handleSave = async () => {
+    if (!user) return;
+    if (!name.trim()) {
+      toast({ title: "Invalid Input", description: "Name is required", variant: "destructive" });
+      return;
+    }
+    try {
+      const updates: any = {
+        full_name: name.trim(),
+        email: email || null,
+        // phone_number is not editable, so we don't update it
+        gender: gender || null,
+        birthdate: birthdate || null,
+        country: country || null,
+        state: stateName || null,
+        city: city || null,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
+      if (error) throw error;
+
+      await updateProfile({
         name: name.trim(),
-        ...(pin.length === 4 && { pin })
+        email,
+        // phone_number is not editable, so we keep the existing value
+        phone_number: user?.phone_number,
+        gender,
+        birthdate,
+        country,
+        state: stateName,
+        city
       });
       setIsEditing(false);
-      setPin("");
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been successfully updated"
-      });
-    } else {
-      toast({
-        title: "Invalid Input",
-        description: "Please check your name and PIN (4 digits)",
-        variant: "destructive"
-      });
+      toast({ title: "Profile Updated", description: "Changes saved to Supabase" });
+    } catch (err: any) {
+      console.error('Profile update failed:', err);
+      toast({ title: "Update Failed", description: err.message || 'Could not save changes', variant: "destructive" });
     }
   };
 
-  const handleLogout = () => {
-    signOut();
-    toast({
-      title: "Logged Out",
-      description: "See you soon on your skincare journey!"
-    });
+  const handleChangePin = async () => {
+    if (!user) return;
+    const is4Digits = (v: string) => /^\d{4}$/.test(v);
+    if (!is4Digits(currentPin) || !is4Digits(newPin) || !is4Digits(confirmPin)) {
+      toast({ title: "Invalid PIN", description: "PINs must be exactly 4 digits.", variant: "destructive" });
+      return;
+    }
+    if (newPin !== confirmPin) {
+      toast({ title: "Mismatch", description: "New PIN and confirmation do not match.", variant: "destructive" });
+      return;
+    }
+    try {
+      // Verify current PIN matches this user's record
+      const { data: profile, error: fetchErr } = await supabase
+        .from('profiles')
+        .select('id, pin')
+        .eq('id', user.id)
+        .single();
+      if (fetchErr) throw fetchErr;
+      if (!profile || String(profile.pin) !== currentPin) {
+        toast({ title: "Wrong PIN", description: "Current PIN is incorrect.", variant: "destructive" });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ pin: newPin, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (error) throw error;
+
+      setCurrentPin("");
+      setNewPin("");
+      setConfirmPin("");
+      toast({ title: "PIN Updated", description: "Your login PIN has been changed." });
+    } catch (err: any) {
+      console.error('Change PIN failed:', err);
+      toast({ title: "Failed to Change PIN", description: err.message || 'Please try again', variant: "destructive" });
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-karma-cream via-background to-karma-light-gold">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40 safe-area-top">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate('/')}
-              aria-label="Go back to home"
-              title="Go back to home"
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-gray-800">Profile</h1>
-            </div>
-            <div className="w-10" />
-          </div>
-        </div>
-      </div>
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title="Profile"
+        backTo="/"
+      />
 
       {/* Content */}
       <div className="p-4 space-y-6">
-        {/* Profile Card */}
+        {/* Profile Details */}
         <Card className="shadow-lg border-0">
-          <CardHeader className="text-center pb-4">
-            <Avatar className="w-24 h-24 mx-auto border-4 border-karma-gold shadow-lg">
-              <AvatarImage src={user?.avatar} />
-              <AvatarFallback className="bg-gradient-to-br from-karma-gold to-accent text-primary-foreground text-2xl">
-                {user?.name?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
+          <CardHeader>
+            <CardTitle className="text-lg">Profile Details</CardTitle>
           </CardHeader>
-          
           <CardContent className="space-y-4">
             {!isEditing ? (
               <>
-                <div className="text-center space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">{user?.name}</h2>
-                  <p className="text-muted-foreground">Skincare Enthusiast</p>
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div><span className="font-medium">Name:</span> {user?.name}</div>
+                  {user?.email && <div><span className="font-medium">Email:</span> {user.email}</div>}
+                  {user?.phone_number && <div><span className="font-medium">Phone:</span> {user.phone_number}</div>}
+                  {user?.gender && <div><span className="font-medium">Gender:</span> {user.gender}</div>}
+                  {user?.birthdate && <div><span className="font-medium">Birthdate:</span> {user.birthdate}</div>}
+                  {(user?.country || user?.state || user?.city) && (
+                    <div><span className="font-medium">Location:</span> {user?.city || ''}{user?.city && (user?.state || user?.country) ? ', ' : ''}{user?.state || ''}{user?.state && user?.country ? ', ' : ''}{user?.country || ''}</div>
+                  )}
                 </div>
-                
                 <Button 
                   onClick={() => setIsEditing(true)}
-                  className="w-full bg-gradient-to-r from-karma-gold to-accent"
+                  className="w-full bg-gradient-to-r from-karma-gold to-accent min-h-[48px]"
                 >
                   <User className="w-4 h-4 mr-2" />
                   Edit Profile
                 </Button>
               </>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <label className="text-sm font-medium mb-2 block">Name</label>
                   <Input
@@ -105,17 +151,88 @@ const ProfilePage = () => {
                     placeholder="Enter your name"
                   />
                 </div>
-                
-                <div>
-                  <label className="text-sm font-medium mb-2 block">New PIN (optional)</label>
-                  <Input
-                    type="password"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.slice(0, 4))}
-                    placeholder="••••"
-                    maxLength={4}
-                    className="text-center tracking-widest"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Email</label>
+                    <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Phone</label>
+                    <Input 
+                      value={phone} 
+                      disabled
+                      readOnly
+                      className="bg-gray-100 cursor-not-allowed opacity-75"
+                      placeholder="1234567890"
+                      title="Phone number cannot be changed"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Gender</label>
+                    <Input value={gender} onChange={(e) => setGender(e.target.value)} placeholder="Male/Female/Other" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Birthdate</label>
+                    <Input type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Country</label>
+                    <Input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Country" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">State</label>
+                    <Input value={stateName} onChange={(e) => setStateName(e.target.value)} placeholder="State" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">City</label>
+                    <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" />
+                  </div>
+                </div>
+
+                {/* Change PIN */}
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-semibold mb-3">Change PIN</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Current PIN</label>
+                      <Input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="\\d*"
+                        value={currentPin}
+                        maxLength={4}
+                        onChange={(e) => setCurrentPin(e.target.value.replace(/[^0-9]/g, '').slice(0,4))}
+                        placeholder="1234"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">New PIN</label>
+                      <Input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="\\d*"
+                        value={newPin}
+                        maxLength={4}
+                        onChange={(e) => setNewPin(e.target.value.replace(/[^0-9]/g, '').slice(0,4))}
+                        placeholder="1234"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Confirm PIN</label>
+                      <Input
+                        type="password"
+                        inputMode="numeric"
+                        pattern="\\d*"
+                        value={confirmPin}
+                        maxLength={4}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/[^0-9]/g, '').slice(0,4))}
+                        placeholder="1234"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <Button onClick={handleChangePin} variant="outline">Update PIN</Button>
+                  </div>
                 </div>
                 
                 <div className="flex gap-2">
@@ -130,7 +247,16 @@ const ProfilePage = () => {
                     onClick={() => {
                       setIsEditing(false);
                       setName(user?.name || "");
-                      setPin("");
+                      setEmail(user?.email || "");
+                      setPhone(user?.phone_number || "");
+                      setGender(user?.gender || "");
+                      setBirthdate(user?.birthdate || "");
+                      setCountry(user?.country || "");
+                      setStateName(user?.state || "");
+                      setCity(user?.city || "");
+                      setCurrentPin("");
+                      setNewPin("");
+                      setConfirmPin("");
                     }}
                     className="flex-1"
                   >
@@ -139,24 +265,6 @@ const ProfilePage = () => {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-
-        {/* Settings Card */}
-        <Card className="shadow-lg border-0">
-          <CardHeader>
-            <CardTitle className="text-lg">Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button 
-              variant="destructive" 
-              className="w-full justify-start"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
           </CardContent>
         </Card>
       </div>

@@ -8,7 +8,25 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     iosScheme: 'https',
     // Enable cleartext traffic for local development
-    cleartext: true
+    cleartext: true,
+    // Allow in-app navigation to trusted domains (product pages, CDN, APIs)
+    allowNavigation: [
+      // KarmaTerra site
+      'karmaterra.in',
+      '*.karmaterra.in',
+      'www.karmaterra.in',
+      // Supabase (api + storage buckets)
+      'aagehceioskhyxvtolfz.supabase.co',
+      'rputuujndhlocoitsbxn.supabase.co',
+      '*.supabase.co',
+      // CDNs and images
+      'images.unsplash.com',
+      '*.unsplash.com',
+      'via.placeholder.com',
+      // Social/external intents
+      'chat.whatsapp.com',
+      'wa.me'
+    ]
   },
   android: {
     // Enable edge-to-edge display for Android
@@ -28,8 +46,8 @@ const config: CapacitorConfig = {
       backgroundColor: '#ffffff',
       showSpinner: true,
       spinnerColor: '#22c55e',
-      // Ensure splash screen respects safe areas
-      androidScaleType: 'CENTER_CROP',
+          // Ensure splash screen respects safe areas and does not crop logo
+          androidScaleType: 'CENTER_INSIDE',
       iosSpinnerStyle: 'large',
       splashFullScreen: true,
       splashImmersive: false
@@ -38,12 +56,14 @@ const config: CapacitorConfig = {
       style: 'light',
       backgroundColor: '#22c55e',
       // Overlay webview for proper safe area handling
-      overlay: false
+      overlay: true
     },
     Keyboard: {
       resize: 'body',
       style: 'dark',
-      resizeOnFullScreen: true
+      resizeOnFullScreen: true,
+      // Improved keyboard handling for Android
+      accessBar: false
     }
   }
 };

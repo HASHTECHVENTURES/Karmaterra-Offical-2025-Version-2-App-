@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Report } from '@/types';
 import { SKIN_PARAMETERS } from '@/lib/constants';
-import { TrendingUp, Home, Download, Loader2 } from 'lucide-react';
-import { generatePDFReport } from '@/services/pdfService';
+import { AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { AndroidPageHeader } from '@/components/AndroidBackButton';
 
 const getSeverityColor = (severity: 'Mild' | 'Medium' | 'Severe' | 'N/A') => {
   switch (severity) {
@@ -25,11 +25,18 @@ const EnhancedSkinAnalysisResultsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloading] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   useEffect(() => {
     if (location.state && location.state.report) {
-      setReport(location.state.report);
+      const reportData = location.state.report;
+      console.log('📸 Report loaded:', {
+        hasFaceImages: !!reportData.faceImages,
+        faceImagesLength: reportData.faceImages?.length,
+        faceImages: reportData.faceImages
+      });
+      setReport(reportData);
     } else {
       // Handle case where there is no report in state (e.g., direct navigation)
       // Maybe navigate back or show an error message
@@ -46,42 +53,30 @@ const EnhancedSkinAnalysisResultsPage: React.FC = () => {
   }
 
   const { result, userData, date, faceImages } = report;
+  
+  // Debug: Log faceImages
+  console.log('📸 Displaying images:', {
+    faceImages,
+    length: faceImages?.length,
+    isArray: Array.isArray(faceImages)
+  });
 
   const handleStartNew = () => {
     navigate('/know-your-skin');
   };
 
-  const handleDownloadPDF = async () => {
-    if (!report) return;
-    
-    setIsDownloading(true);
-    try {
-      await generatePDFReport(report);
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      alert('Failed to download PDF. Please try again.');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+  // PDF download removed per request
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <header className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
-          <div className="flex justify-between items-start">
-              <div>
-                  <h1 className="text-3xl sm:text-4xl font-bold text-teal-600">Your Skin Analysis Report</h1>
-                  <p className="text-slate-500 mt-1">For: {userData.name} | Generated on: {date}</p>
-              </div>
-              <button onClick={() => navigate('/')} className="text-sm bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-full hover:bg-slate-300 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back to Home
-              </button>
-          </div>
-        </header>
+    <div className="min-h-screen bg-gray-50">
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title="Skin Analysis Report"
+        subtitle={`For: ${userData.name} | ${date}`}
+        onBack={() => navigate(-1)}
+      />
+      
+      <div className="max-w-4xl mx-auto p-4 sm:p-8 space-y-8">
 
         {/* Overall Summary */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
@@ -93,19 +88,23 @@ const EnhancedSkinAnalysisResultsPage: React.FC = () => {
         </div>
 
         {/* Captured Images */}
-        {faceImages && faceImages.length === 3 && (
+        {faceImages && faceImages.length > 0 && (
             <div className="bg-white p-6 rounded-xl shadow-lg border border-slate-200">
               <h2 className="text-2xl font-bold text-slate-800 mb-4">Images Used for Analysis</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className={`grid grid-cols-1 ${faceImages.length === 1 ? 'sm:grid-cols-1 max-w-md mx-auto' : faceImages.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-4`}>
                 {faceImages.map((image, index) => (
                   <div key={index} className="text-center">
                     <img 
                       src={image} 
-                      alt={['Front Face', 'Right Side', 'Left Side'][index]} 
+                      alt={['Front Face', 'Right Side', 'Left Side'][index] || `Image ${index + 1}`} 
                       className="rounded-lg shadow-md border border-slate-200 aspect-square object-cover w-full" 
+                      onError={(e) => {
+                        console.error('Image failed to load:', image);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
                     />
                     <p className="text-sm font-semibold text-slate-600 mt-2">
-                      {['Front Face', 'Right Side', 'Left Side'][index]}
+                      {['Front Face', 'Right Side', 'Left Side'][index] || `Image ${index + 1}`}
                     </p>
                   </div>
                 ))}
@@ -128,13 +127,23 @@ const EnhancedSkinAnalysisResultsPage: React.FC = () => {
                       {paramData.severity}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className={`h-2.5 rounded-full ${getRatingColor(paramData.rating)}`} style={{ width: `${paramData.rating * 10}%` }}></div>
+                  {paramData.category === 'Skin Type' ? (
+                    <div className="mt-1">
+                      <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                        {paramData.description?.match(/dry|oily|normal|combination/i)?.[0]?.replace(/\b\w/g, (c: string) => c.toUpperCase()) || '—'}
+                      </span>
                     </div>
-                    <span className="font-bold text-slate-800 w-8 text-right">{paramData.rating}/10</span>
-                  </div>
-                  <p className="text-sm text-slate-500 mt-1">{paramData.description}</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-4">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div className={`h-2.5 rounded-full ${getRatingColor(paramData.rating)}`} style={{ width: `${paramData.rating * 10}%` }}></div>
+                        </div>
+                        <span className="font-bold text-slate-800 w-8 text-right">{paramData.rating}/10</span>
+                      </div>
+                      <p className="text-sm text-slate-500 mt-1">{paramData.description}</p>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -257,41 +266,44 @@ const EnhancedSkinAnalysisResultsPage: React.FC = () => {
         </div>
 
         <div className="text-center pt-4 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap">
-            <button 
-              onClick={handleDownloadPDF}
-              disabled={isDownloading}
-              className="bg-gradient-to-r from-red-500 to-red-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {isDownloading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Generating PDF...
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  Download PDF
-                </>
-              )}
-            </button>
-            <button 
-              onClick={() => navigate('/progress-tracking')} 
-              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center gap-2"
-            >
-              <TrendingUp className="w-5 h-5" />
-              Track Progress
-            </button>
-            <button 
-              onClick={handleStartNew} 
-              className="bg-teal-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-teal-600 transition-all transform hover:scale-105"
-            >
-              Start New Analysis
-            </button>
+          <button 
+            onClick={handleStartNew} 
+            className="bg-teal-500 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-teal-600 transition-all transform hover:scale-105"
+          >
+            Start New Analysis
+          </button>
+        </div>
+
+        {/* Collapsible AI Disclaimer */}
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-xl shadow-md overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowDisclaimer(!showDisclaimer)}
+            className="w-full p-4 flex items-center justify-between hover:bg-amber-100 transition-colors min-h-[48px] text-left"
+            aria-label={showDisclaimer ? "Hide disclaimer" : "Show disclaimer"}
+            aria-expanded={showDisclaimer}
+          >
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <h3 className="font-semibold text-amber-900">AI Analysis Disclaimer</h3>
+            </div>
+            {showDisclaimer ? (
+              <ChevronUp className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            )}
+          </button>
+          <div 
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              showDisclaimer ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="px-4 pb-4 pt-0">
+              <p className="text-sm text-amber-900 leading-relaxed">
+                This AI-powered skin analysis is for informational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. The analysis is based on images and questionnaire responses and may not be 100% accurate. Always consult with a qualified dermatologist or healthcare provider for skin concerns or before making significant changes to your skincare routine.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-slate-500 mt-2">
-            Download your report as PDF to share with doctors or track your skin improvements over time
-          </p>
         </div>
       </div>
     </div>

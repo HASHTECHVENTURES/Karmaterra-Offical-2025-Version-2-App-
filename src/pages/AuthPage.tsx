@@ -15,7 +15,6 @@ const AuthPage = () => {
   const [country, setCountry] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
-  const [countryCode, setCountryCode] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -44,10 +43,21 @@ const AuthPage = () => {
     e.preventDefault();
     setLoading(true);
     
-    if (pin.length !== 4) {
+    // Phone number is required for both sign-in and sign-up
+    if (!phoneNumber.trim()) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter your phone number",
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
+
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
       toast({
         title: "Invalid PIN",
-        description: "Please enter a 4-digit PIN",
+        description: "Please enter a 4-digit PIN (numbers only)",
         variant: "destructive"
       });
       setLoading(false);
@@ -134,29 +144,10 @@ const AuthPage = () => {
       return;
     }
 
-    if (isSignUp && !countryCode.trim()) {
-      toast({
-        title: "Country Code Required",
-        description: "Please select your country code for sign up",
-        variant: "destructive"
-      });
-      setLoading(false);
-      return;
-    }
-
-    if (isSignUp && !phoneNumber.trim()) {
-      toast({
-        title: "Phone Number Required",
-        description: "Please enter your phone number for sign up",
-        variant: "destructive"
-      });
-      setLoading(false);
-      return;
-    }
-
     try {
       const result = await login(
-        pin, 
+        pin,
+        phoneNumber.trim(),
         isSignUp ? name.trim() : undefined,
         isSignUp ? email.trim() : undefined,
         isSignUp ? gender.trim() : undefined,
@@ -164,8 +155,7 @@ const AuthPage = () => {
         isSignUp ? country.trim() : undefined,
         isSignUp ? state.trim() : undefined,
         isSignUp ? city.trim() : undefined,
-        isSignUp ? countryCode.trim() : undefined,
-        isSignUp ? phoneNumber.trim() : undefined
+        isSignUp // Explicitly pass isSignUpMode flag
       );
 
       if (result.success) {
@@ -197,7 +187,7 @@ const AuthPage = () => {
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8">
         {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-white border-2 border-green-200 rounded-xl flex items-center justify-center p-2">
+          <div className="w-24 h-24 bg-white border-2 border-green-200 rounded-xl flex items-center justify-center p-2">
             <img 
               src="/lovable-uploads/223eca30-a4ce-4252-8a09-b59de0313219.png" 
               alt="Karma Terra Logo"
@@ -226,10 +216,13 @@ const AuthPage = () => {
               </label>
               <Input
                 type="text"
+                inputMode="text"
+                autoComplete="name"
                 placeholder="Enter your full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full h-12 bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
+                className="w-full h-12 min-h-[48px] bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
+                aria-label="Full name"
               />
             </div>
           )}
@@ -242,10 +235,13 @@ const AuthPage = () => {
               </label>
               <Input
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 placeholder="Enter your email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-12 bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
+                className="w-full h-12 min-h-[48px] bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
+                aria-label="Email address"
               />
             </div>
           )}
@@ -277,7 +273,8 @@ const AuthPage = () => {
                 Birthdate *
               </label>
               <Input
-                type="date"
+                type="text"
+                placeholder="DD/MM/YYYY"
                 value={birthdate}
                 onChange={(e) => setBirthdate(e.target.value)}
                 className="w-full h-12 bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
@@ -319,9 +316,9 @@ const AuthPage = () => {
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option key="state-empty" value="">{country ? "Select your state" : "Select country first"}</option>
-                {states.map((stateOption) => (
-                  <option key={stateOption.code} value={stateOption.name}>
-                    {stateOption.name}
+                {states.map((stateOption, index) => (
+                  <option key={`state-${index}`} value={stateOption}>
+                    {stateOption}
                   </option>
                 ))}
               </select>
@@ -341,106 +338,34 @@ const AuthPage = () => {
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option key="city-empty" value="">{state ? "Select your city" : "Select state first"}</option>
-                {cities.map((cityOption) => (
-                  <option key={cityOption.id} value={cityOption.name}>
-                    {cityOption.name}
+                {cities.map((cityOption, index) => (
+                  <option key={`city-${index}`} value={cityOption}>
+                    {cityOption}
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Country Code and Phone Number - Only for Sign Up */}
-          {isSignUp && (
-            <div className="grid grid-cols-3 gap-3 items-end">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Country Code *
-                </label>
-                <select
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500 px-3"
-                >
-                  <option value="">Code</option>
-                  <option key="+1" value="+1">🇺🇸 +1</option>
-                  <option key="+91" value="+91">🇮🇳 +91</option>
-                  <option key="+44" value="+44">🇬🇧 +44</option>
-                  <option key="+86" value="+86">🇨🇳 +86</option>
-                  <option key="+81" value="+81">🇯🇵 +81</option>
-                  <option key="+49" value="+49">🇩🇪 +49</option>
-                  <option key="+33" value="+33">🇫🇷 +33</option>
-                  <option key="+39-IT" value="+39">🇮🇹 +39</option>
-                  <option key="+34" value="+34">🇪🇸 +34</option>
-                  <option key="+7" value="+7">🇷🇺 +7</option>
-                  <option key="+55" value="+55">🇧🇷 +55</option>
-                  <option key="+52" value="+52">🇲🇽 +52</option>
-                  <option key="+61" value="+61">🇦🇺 +61</option>
-                  <option key="+82" value="+82">🇰🇷 +82</option>
-                  <option key="+66" value="+66">🇹🇭 +66</option>
-                  <option key="+60" value="+60">🇲🇾 +60</option>
-                  <option key="+65" value="+65">🇸🇬 +65</option>
-                  <option key="+971" value="+971">🇦🇪 +971</option>
-                  <option key="+966" value="+966">🇸🇦 +966</option>
-                  <option key="+20" value="+20">🇪🇬 +20</option>
-                  <option key="+27" value="+27">🇿🇦 +27</option>
-                  <option key="+234" value="+234">🇳🇬 +234</option>
-                  <option key="+254" value="+254">🇰🇪 +254</option>
-                  <option key="+880" value="+880">🇧🇩 +880</option>
-                  <option key="+92" value="+92">🇵🇰 +92</option>
-                  <option key="+93" value="+93">🇦🇫 +93</option>
-                  <option key="+98" value="+98">🇮🇷 +98</option>
-                  <option key="+90" value="+90">🇹🇷 +90</option>
-                  <option key="+84" value="+84">🇻🇳 +84</option>
-                  <option key="+63" value="+63">🇵🇭 +63</option>
-                  <option key="+62" value="+62">🇮🇩 +62</option>
-                  <option key="+64" value="+64">🇳🇿 +64</option>
-                  <option key="+31" value="+31">🇳🇱 +31</option>
-                  <option key="+32" value="+32">🇧🇪 +32</option>
-                  <option key="+41" value="+41">🇨🇭 +41</option>
-                  <option key="+43" value="+43">🇦🇹 +43</option>
-                  <option key="+45" value="+45">🇩🇰 +45</option>
-                  <option key="+46" value="+46">🇸🇪 +46</option>
-                  <option key="+47" value="+47">🇳🇴 +47</option>
-                  <option key="+358" value="+358">🇫🇮 +358</option>
-                  <option key="+48" value="+48">🇵🇱 +48</option>
-                  <option key="+420" value="+420">🇨🇿 +420</option>
-                  <option key="+421" value="+421">🇸🇰 +421</option>
-                  <option key="+36" value="+36">🇭🇺 +36</option>
-                  <option key="+40" value="+40">🇷🇴 +40</option>
-                  <option key="+359" value="+359">🇧🇬 +359</option>
-                  <option key="+385" value="+385">🇭🇷 +385</option>
-                  <option key="+386" value="+386">🇸🇮 +386</option>
-                  <option key="+372" value="+372">🇪🇪 +372</option>
-                  <option key="+371" value="+371">🇱🇻 +371</option>
-                  <option key="+370" value="+370">🇱🇹 +370</option>
-                  <option key="+353" value="+353">🇮🇪 +353</option>
-                  <option key="+351" value="+351">🇵🇹 +351</option>
-                  <option key="+30" value="+30">🇬🇷 +30</option>
-                  <option key="+357" value="+357">🇨🇾 +357</option>
-                  <option key="+356" value="+356">🇲🇹 +356</option>
-                  <option key="+352" value="+352">🇱🇺 +352</option>
-                  <option key="+377" value="+377">🇲🇨 +377</option>
-                  <option key="+378" value="+378">🇸🇲 +378</option>
-                  <option key="+39-VA" value="+39">🇻🇦 +39</option>
-                  <option key="+376" value="+376">🇦🇩 +376</option>
-                  <option key="+423" value="+423">🇱🇮 +423</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Phone Number *
-                </label>
-                <Input
-                  type="tel"
-                  placeholder="1234567890"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
-                  className="w-full h-12 bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
-                />
-              </div>
-            </div>
-          )}
+          {/* Phone Number - Required for both Sign In and Sign Up */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block">
+              Phone Number *
+            </label>
+            <Input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="1234567890"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+              className="w-full h-12 min-h-[48px] bg-gray-50 border-gray-200 rounded-lg focus:border-green-500 focus:ring-green-500"
+              aria-label="Phone number"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Your phone number is your unique identifier for your account
+            </p>
+          </div>
 
           {/* PIN Input */}
           <div>
@@ -450,22 +375,27 @@ const AuthPage = () => {
             <div className="relative">
               <Input
                 type={showPin ? "text" : "password"}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
                 placeholder="1234"
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                className="w-full h-12 bg-gray-50 border-gray-200 rounded-lg text-center text-lg tracking-widest focus:border-green-500 focus:ring-green-500"
+                className="w-full h-12 min-h-[48px] bg-gray-50 border-gray-200 rounded-lg text-center text-lg tracking-widest focus:border-green-500 focus:ring-green-500"
                 maxLength={4}
+                aria-label="4-digit PIN"
               />
               <button
                 type="button"
                 onClick={() => setShowPin(!showPin)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 min-h-[48px] min-w-[48px] flex items-center justify-center"
+                aria-label={showPin ? "Hide PIN" : "Show PIN"}
               >
                 {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              PIN must be exactly 4 digits (numbers only). This will be your secure login method.
+              PIN must be exactly 4 digits (numbers only).
             </p>
           </div>
 

@@ -1,701 +1,528 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, Upload, CheckCircle, AlertCircle, X } from "lucide-react";
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const API_KEY = 'AIzaSyAbJINoNUa_H8UCfdpjstcWJS2ZMjDB3mQ';
-const genAI = new GoogleGenerativeAI(API_KEY);
+import { LoaderCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AndroidPageHeader } from "../components/AndroidBackButton";
+import HairQuestionnaire, { HairQuestionnaireAnswers } from "../components/HairQuestionnaire";
+import HairPhotoCapture from "../components/HairPhotoCapture";
+import { analyzeHair, HairAnalysisResult } from "../services/geminiService";
+import { useAuth } from "../App";
+import { supabase } from "../lib/supabase";
+import { UserData, Report, AnalysisResult } from "../types";
 
 const HairAnalysisPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [capturedImages, setCapturedImages] = useState<{[key: string]: string}>({});
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
-  const [selectedParameter, setSelectedParameter] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [showCamera, setShowCamera] = useState(false);
-  const [currentCaptureView, setCurrentCaptureView] = useState<string | null>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const { user } = useAuth();
+  const [userProfile, setUserProfile] = useState<any | undefined>(undefined);
+  const [localMode, setLocalMode] = useState<'questionnaire' | 'camera' | 'analyzing' | 'error'>('questionnaire');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [questionnaireAnswers, setQuestionnaireAnswers] = useState<HairQuestionnaireAnswers | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [lightingAdvice, setLightingAdvice] = useState<string>("Position your hair in good lighting");
-  const [faceDetected, setFaceDetected] = useState<boolean>(false);
-  const [faceBox, setFaceBox] = useState<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
-  const hairViews = [
-    {
-      id: 'front',
-      name: 'Front View',
-      description: 'Capture your hairline and forehead',
-      icon: '👤',
-      color: 'bg-blue-100 text-blue-600'
-    },
-    {
-      id: 'top',
-      name: 'Top View',
-      description: 'Capture the crown and top of head',
-      icon: '👑',
-      color: 'bg-green-100 text-green-600'
-    }
-  ];
+  useEffect(() => {
+    const initialize = async () => {
+      // Reset state when user changes or component initializes
+      setQuestionnaireAnswers(null);
+      setUserProfile(undefined);
+      
+      if (user) {
+        setUserProfile(user);
 
-  const hairParameters = [
-    { id: 'density', name: 'Density', description: 'Hair density and thickness', color: '#FF6B6B' },
-    { id: 'scalp', name: 'Scalp Health', description: 'Scalp condition and health', color: '#4ECDC4' },
-    { id: 'texture', name: 'Texture', description: 'Hair texture and quality', color: '#45B7D1' },
-    { id: 'damage', name: 'Damage', description: 'Hair damage and split ends', color: '#96CEB4' },
-    { id: 'growth', name: 'Growth', description: 'Hair growth patterns', color: '#FFEAA7' },
-    { id: 'hydration', name: 'Hydration', description: 'Hair moisture levels', color: '#DDA0DD' },
-    { id: 'recommendations', name: 'Recommendations', description: 'Care recommendations', color: '#98D8C8' }
-  ];
+        // Load existing hair questionnaire answers from Supabase
+        try {
+          // First, try to load from profiles table - use maybeSingle to handle no results
+          const { data: dbProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
 
-  const startCamera = async (view: string) => {
-    try {
-      console.log('Starting camera for view:', view);
-      
-      // Stop any existing stream first
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
-      
-      // Check if getUserMedia is available
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Camera not supported on this device');
-      }
-      
-      console.log('Requesting camera permission...');
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'user', // Front camera
-          width: { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-          frameRate: { ideal: 30, min: 15 }
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.error('Error loading profile:', profileError);
+          }
+
+          if (dbProfile) {
+            // Build HairQuestionnaireAnswers from profile if hair fields exist
+            const existingAnswers: Partial<HairQuestionnaireAnswers> = {};
+            
+            if (dbProfile.hair_type) existingAnswers.hairType = dbProfile.hair_type as HairQuestionnaireAnswers['hairType'];
+            if (dbProfile.hair_texture) existingAnswers.hairTexture = dbProfile.hair_texture as HairQuestionnaireAnswers['hairTexture'];
+            if (dbProfile.hair_thickness) existingAnswers.hairThickness = dbProfile.hair_thickness as HairQuestionnaireAnswers['hairThickness'];
+            if (dbProfile.scalp_condition) existingAnswers.scalpCondition = dbProfile.scalp_condition as HairQuestionnaireAnswers['scalpCondition'];
+            if (dbProfile.washing_frequency) existingAnswers.washingFrequency = dbProfile.washing_frequency as HairQuestionnaireAnswers['washingFrequency'];
+            if (dbProfile.hair_care_products) existingAnswers.hairCareProducts = dbProfile.hair_care_products as HairQuestionnaireAnswers['hairCareProducts'];
+            if (dbProfile.chemical_treatments) existingAnswers.chemicalTreatments = dbProfile.chemical_treatments as HairQuestionnaireAnswers['chemicalTreatments'];
+            if (dbProfile.heat_styling_frequency) existingAnswers.heatStylingFrequency = dbProfile.heat_styling_frequency as HairQuestionnaireAnswers['heatStylingFrequency'];
+            if (dbProfile.stress_level) existingAnswers.stressLevel = dbProfile.stress_level as HairQuestionnaireAnswers['stressLevel'];
+            if (dbProfile.water_quality) existingAnswers.waterQuality = dbProfile.water_quality as HairQuestionnaireAnswers['waterQuality'];
+            if (dbProfile.gender) existingAnswers.gender = dbProfile.gender as HairQuestionnaireAnswers['gender'];
+            if (dbProfile.birthdate || dbProfile.date_of_birth) existingAnswers.birthdate = dbProfile.birthdate || dbProfile.date_of_birth;
+            if (dbProfile.city) existingAnswers.city = dbProfile.city;
+            if (dbProfile.state) existingAnswers.state = dbProfile.state;
+
+            // Also try to load from questionnaire_history for most recent answers - use maybeSingle
+            const { data: latestQuestionnaire, error: questionnaireError } = await supabase
+              .from('questionnaire_history')
+              .select('questionnaire_data')
+              .eq('user_id', user.id)
+              .eq('questionnaire_type', 'hair')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (questionnaireError && questionnaireError.code !== 'PGRST116') {
+              console.error('Error loading questionnaire history:', questionnaireError);
+            }
+
+            if (latestQuestionnaire?.questionnaire_data) {
+              // Merge with profile data, but questionnaire_history takes precedence if it has more complete data
+              const qData = latestQuestionnaire.questionnaire_data as Partial<HairQuestionnaireAnswers>;
+              Object.keys(qData).forEach(key => {
+                const typedKey = key as keyof HairQuestionnaireAnswers;
+                const value = qData[typedKey];
+                if (value !== undefined && value !== null) {
+                  (existingAnswers as any)[typedKey] = value;
+                }
+              });
+            }
+
+            // Only set if we have at least one answer for THIS user
+            if (Object.keys(existingAnswers).length > 0) {
+              console.log('📋 Loaded existing hair questionnaire answers from Supabase for user:', user.id, existingAnswers);
+              setQuestionnaireAnswers(existingAnswers as HairQuestionnaireAnswers);
+            } else {
+              // Clear answers for new users without previous data
+              setQuestionnaireAnswers(null);
+            }
+          } else {
+            // No profile found for this user - clear answers
+            setQuestionnaireAnswers(null);
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to load existing questionnaire answers:', error);
+          // Clear answers on error to prevent showing wrong data
+          setQuestionnaireAnswers(null);
         }
-      });
-      
-      console.log('Camera stream obtained:', mediaStream);
-      setStream(mediaStream);
-      setCurrentCaptureView(view);
-      setShowCamera(true);
-      
-      // Set simple lighting advice
-      setLightingAdvice("Position your hair in good lighting");
-      
-      // Start lighting check after a short delay
-      setTimeout(() => {
-        startLightingCheck();
-      }, 1000);
-      
-    } catch (error: any) {
-      console.error('Camera error:', error);
-      setCameraError(`Camera access failed: ${error.message}`);
-      setError(`Camera access failed: ${error.message}`);
-    }
-  };
-
-  const stopCamera = () => {
-    console.log('Stopping camera...');
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setShowCamera(false);
-    setCurrentCaptureView(null);
-    setFaceDetected(false);
-    setFaceBox(null);
-    setCameraError(null);
-    setError(null);
-    stopFaceDetection();
-  };
-
-  const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !currentCaptureView) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) return;
-
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Draw the video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert to base64
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
-    
-    // Update captured images
-    const newCapturedImages = {
-      ...capturedImages,
-      [currentCaptureView]: imageData
-    };
-    setCapturedImages(newCapturedImages);
-
-    // Stop camera
-    stopCamera();
-
-    // Auto-analyze when all 2 images are captured
-    if (Object.keys(newCapturedImages).length === 2) {
-      analyzeHair(newCapturedImages);
-    }
-  };
-
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !currentCaptureView) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const imageData = e.target?.result as string;
-      const newCapturedImages = {
-        ...capturedImages,
-        [currentCaptureView]: imageData
-      };
-      setCapturedImages(newCapturedImages);
-
-      // Auto-analyze when all 2 images are captured
-      if (Object.keys(newCapturedImages).length === 2) {
-        analyzeHair(newCapturedImages);
       }
+      setLoadingProfile(false);
     };
-    reader.readAsDataURL(file);
-  };
 
-  const analyzeHair = async (images?: {[key: string]: string}) => {
-    const imagesToAnalyze = images || capturedImages;
-    
-    if (Object.keys(imagesToAnalyze).length < 2) {
-      setError('Please capture both views before analysis');
+    initialize();
+  }, [user]);
+
+  const handleAnalysis = async (images: string[]) => {
+    if (!userProfile || !questionnaireAnswers) {
+      setError("User data or questionnaire answers are missing.");
+      setLocalMode('error');
       return;
     }
 
-    setIsAnalyzing(true);
-    setError(null);
+    if (!images || images.length < 2) {
+      setError('Please capture both front and top view images before analysis');
+      setLocalMode('error');
+      return;
+    }
+
+    // Validate images are valid base64 strings
+    const validImages = images.filter(img => img && typeof img === 'string' && img.length > 100);
+    if (validImages.length < 2) {
+      setError('One or more images are invalid. Please capture the images again.');
+      setLocalMode('error');
+      return;
+    }
+
+    console.log('📸 Starting hair analysis with images:', {
+      imageCount: images.length,
+      firstImageLength: images[0]?.length || 0,
+      secondImageLength: images[1]?.length || 0
+    });
+
+    setLocalMode('analyzing');
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+      // Persist demographic fields
+      const profileUpdates: any = {};
+      if (questionnaireAnswers.gender) profileUpdates.gender = questionnaireAnswers.gender;
+      if (questionnaireAnswers.birthdate) profileUpdates.birthdate = questionnaireAnswers.birthdate;
+      if (questionnaireAnswers.city) profileUpdates.city = questionnaireAnswers.city;
+      if (questionnaireAnswers.state) profileUpdates.state = questionnaireAnswers.state;
+      if (questionnaireAnswers.hairType) profileUpdates.hair_type = questionnaireAnswers.hairType;
+      if (questionnaireAnswers.hairTexture) profileUpdates.hair_texture = questionnaireAnswers.hairTexture;
+      if (questionnaireAnswers.hairThickness) profileUpdates.hair_thickness = questionnaireAnswers.hairThickness;
+      if (questionnaireAnswers.scalpCondition) profileUpdates.scalp_condition = questionnaireAnswers.scalpCondition;
+      if (questionnaireAnswers.washingFrequency) profileUpdates.washing_frequency = questionnaireAnswers.washingFrequency;
+      if (questionnaireAnswers.hairCareProducts) profileUpdates.hair_care_products = questionnaireAnswers.hairCareProducts;
+      if (questionnaireAnswers.chemicalTreatments) profileUpdates.chemical_treatments = questionnaireAnswers.chemicalTreatments;
+      if (questionnaireAnswers.heatStylingFrequency) profileUpdates.heat_styling_frequency = questionnaireAnswers.heatStylingFrequency;
+      if (questionnaireAnswers.stressLevel) profileUpdates.stress_level = questionnaireAnswers.stressLevel;
+      if (questionnaireAnswers.waterQuality) profileUpdates.water_quality = questionnaireAnswers.waterQuality;
 
-      const prompt = `
-        You are a professional trichologist analyzing TWO hair images: front view and top view. You MUST analyze BOTH images and provide results for each view.
-        
-        CRITICAL ANALYSIS INSTRUCTIONS:
-        - You are receiving 2 separate images: front and top hair views
-        - Analyze EACH image individually and provide parameters for BOTH views
-        - Look VERY CAREFULLY at the actual hair - examine every detail
-        - Report ALL visible hair issues you can detect, even minor ones
-        - Be thorough and comprehensive in your analysis
-        - Provide precise, medical-grade descriptions
-        - Use exact coordinates within the hair boundaries
-        - Take your time to carefully examine each image for ALL hair issues
-        
-        ANALYZE THESE 7 HAIR PARAMETERS WITH CLINICAL ACCURACY:
-        1. Hair Density and Thickness: Hair density, thickness of individual strands
-        2. Scalp Health and Condition: Scalp visibility, redness, irritation, dryness
-        3. Hair Texture and Quality: Texture, quality, shine, frizz
-        4. Potential Issues: Dandruff, dryness, damage, hair loss
-        5. Hair Growth Patterns: Receding hairline, general growth patterns
-        6. Recommendations for Improvement: Hydration, styling, scalp care, trimming, diet, general health
-        
-        IMPORTANT: Look for ALL of these parameters in EVERY image. Do not skip any analysis.
-        
-        COORDINATE SYSTEM (for 300x300 cropped images):
-        - Image dimensions: 300x300 pixels
-        - Hair center: (150, 150)
-        - Forehead area: (150, 60-120)
-        - Crown area: (150, 80-140)
-        - Side areas: (100-200, 120-200)
-        - Temple areas: (80-120, 140-180) and (180-220, 140-180)
-        
-        DETECTION CRITERIA:
-        - Report ALL visible hair issues, even minor ones
-        - Use specific anatomical locations (e.g., "Thinning at temples" not "Hair loss")
-        - Provide exact pixel coordinates where the issue is most prominent
-        - Look for ALL 6 parameters in EVERY image - do not skip any
-        - Maximum 10 issues per hair view to ensure comprehensive analysis
-        - Look very carefully for subtle issues that might be missed
-        - MANDATORY: You must analyze BOTH views (front and top)
-        - MANDATORY: You must check for ALL 6 parameters in each view
-        - If you see ANY hair issue, report it with coordinates
-        
-        SCORING:
-        - Provide an overall_score from 0 to 100 (integer). 100 = excellent hair health
-        - Higher counts/severity reduce score. Good hydration and low damage increase score.
-        - Consider overall hair quality, not just individual issues
+      if (userProfile.id) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', userProfile.id);
 
-        REQUIRED JSON STRUCTURE (analyze BOTH views comprehensively):
-        {
-          "hair_analysis": {
-            "1. Hair Density and Thickness": {
-              "density": "Appears to be medium density overall.",
-              "thickness": "Hair strands appear to be of medium thickness. It's difficult to fully assess without closer inspection, but they don't appear particularly fine or coarse.",
-              "notes": "Density might be slightly lower at the temples. Further inspection would be needed to confirm. The density seems consistent on top."
-            },
-            "2. Scalp Health and Condition": {
-              "condition": "Scalp is not clearly visible in these images. Without closer, clearer images, it is difficult to definitively assess the scalp health.",
-              "redness_or_irritation": "No obvious signs of significant redness or irritation are visible in the photos provided.",
-              "dryness_or_oiliness": "Difficult to assess dryness or oiliness from these images. Further inspection required.",
-              "notes": "It is important to examine the scalp directly for a more accurate assessment."
-            },
-            "3. Hair Texture and Quality": {
-              "texture": "Appears to be wavy/slightly curly. The hair has some natural waves present.",
-              "quality": "The hair seems to be in relatively good condition. No significant visible signs of excessive damage. Some frizz is present, which may indicate dryness.",
-              "shine": "Shine is moderate, indicating reasonable health but could be improved with proper hydration.",
-              "notes": "A product used for styling is noted that maintains the hair texture."
-            },
-            "4. Potential Issues": {
-              "dandruff": "No visible signs of dandruff in the provided images.",
-              "dryness": "Possible dryness indicated by some frizz. Requires closer inspection and possibly testing moisture levels.",
-              "damage": "No significant visible damage like split ends is apparent in the photos. However, minor damage may not be easily visible in the images.",
-              "hair_loss": "It's hard to assess hair loss with the given images. Temples should be examined more closely in the future. It is best to compare to previous photos.",
-              "notes": "Routine trimming can help prevent split ends and maintain overall hair health. The temples will require more consistent checkup to spot a thinning."
-            },
-            "5. Hair Growth Patterns": {
-              "receding_hairline": "Hard to detect from images. The hairline appears to be straight and normal from the images, yet there are no images of the back of the hairline to see growth patterns.",
-              "general_growth": "Hair is growing upwards which indicates recent cutting of hair. Without a specific time for hair trimming, hair growth is hard to determine.",
-              "notes": "Observe and compare to previous photos for changes in hairline or thinning over time."
-            },
-            "6. Recommendations for Improvement": {
-              "hydration": "Use a moisturizing shampoo and conditioner to combat potential dryness and reduce frizz.",
-              "styling": "Use hydrating styling products to define curls and reduce frizz, such as leave-in conditioners or hair oils.",
-              "scalp_care": "Consider incorporating a scalp massage into your routine to improve circulation and scalp health. Use a scalp brush for exfoliation.",
-              "trimming": "Regular trimming every 6-8 weeks can help remove split ends and maintain hair health.",
-              "diet": "Ensure a balanced diet rich in vitamins and minerals, particularly those known to support hair health (biotin, iron, zinc).",
-              "general_health": "Get professional health advice for any underlying health concerns that may affect hair growth and condition. Stress affects hair condition as well.",
-              "notes": "It's crucial to consult a dermatologist or trichologist for a thorough scalp and hair assessment, especially if concerns like hair loss or persistent scalp issues arise."
-            }
-          }
+        if (updateError) {
+          console.error('Failed to update profile:', updateError);
         }
-
-        CRITICAL INSTRUCTIONS:
-        - You MUST analyze both images and provide results for front and top views
-        - You MUST check for ALL 6 parameters in EVERY image
-        - You MUST report ALL visible hair issues you can detect
-        - Do NOT skip any views or parameters
-        - Do NOT return empty parameter arrays unless absolutely no issues are visible
-        - Return ONLY valid JSON without any markdown formatting
-        - Be extremely thorough and comprehensive in your analysis
-        
-        EXAMINE THE IMAGES VERY CAREFULLY AND REPORT EVERYTHING YOU SEE!
-      `;
-
-      const imageParts = Object.entries(imagesToAnalyze).map(([view, imageData]) => ({
-        inlineData: {
-          data: imageData.split(',')[1],
-          mimeType: 'image/jpeg'
-        }
-      }));
-
-      const result = await model.generateContent([prompt, ...imageParts]);
-      const response = await result.response;
-      const analysisText = response.text();
-
-      console.log('Raw analysis response:', analysisText);
-
-      // Try to parse the response
-      let parsedAnalysis;
-      try {
-        // Remove any markdown formatting
-        const cleanText = analysisText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        parsedAnalysis = JSON.parse(cleanText);
-      } catch (parseError) {
-        console.error('Failed to parse analysis:', parseError);
-        // Use the raw text as fallback
-        parsedAnalysis = { raw_analysis: analysisText };
       }
 
-      setAnalysisResult(parsedAnalysis);
+      const birthdate = questionnaireAnswers.birthdate || (userProfile as any).birthdate || (userProfile as any).date_of_birth;
+      if (!birthdate) {
+        throw new Error("Birthdate is missing from user profile.");
+      }
+      
+      const parseBirthdate = (b: string) => {
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(b)) {
+          const [dd, mm, yyyy] = b.split('/').map(Number);
+          return new Date(yyyy, mm - 1, dd);
+        }
+        return new Date(b);
+      };
+      const bd = parseBirthdate(birthdate);
+      const age = Math.floor((Date.now() - bd.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
 
-      // Save to localStorage
-      const history = JSON.parse(localStorage.getItem('hairAnalysisHistory') || '[]');
-      history.unshift({
-        analysisResult: parsedAnalysis,
-        capturedImages: imagesToAnalyze,
-        timestamp: new Date().toISOString()
-      });
-      localStorage.setItem('hairAnalysisHistory', JSON.stringify(history.slice(0, 10)));
+      const userDataForApi: UserData = {
+        name: userProfile.name || 'Anonymous',
+        age: age,
+        gender: questionnaireAnswers.gender || userProfile.gender,
+        city: questionnaireAnswers.city || userProfile.city,
+        state: questionnaireAnswers.state || userProfile.state,
+        country: (userProfile as any).country,
+        profession: '',
+        workingTime: '',
+        acUsage: '',
+        smoking: '',
+        waterQuality: questionnaireAnswers.waterQuality,
+      };
 
-      // Auto-navigate to results page after 2 seconds
-      setTimeout(() => {
-        navigate('/hair-analysis-results', {
-          state: {
-            analysisResult: parsedAnalysis,
-            capturedImages: imagesToAnalyze
+      console.log('🧩 Sending user data to AI:', userDataForApi);
+      const result = await analyzeHair(userDataForApi, images, questionnaireAnswers);
+
+      // Validate result structure
+      if (!result || !result.hair_analysis) {
+        console.error('❌ Invalid result structure:', result);
+        throw new Error("Invalid hair analysis result: missing hair_analysis data");
+      }
+
+      const hairAnalysis = result.hair_analysis;
+      
+      // Try multiple key formats in case AI returns keys differently
+      const getHairAnalysisSection = (key: string, altKeys?: string[]) => {
+        if (hairAnalysis[key]) return hairAnalysis[key];
+        if (altKeys) {
+          for (const altKey of altKeys) {
+            if (hairAnalysis[altKey]) return hairAnalysis[altKey];
           }
-        });
-      }, 2000);
+        }
+        // Try finding by partial key match
+        const matchingKey = Object.keys(hairAnalysis).find(k => 
+          k.includes(key.split(' ')[1]) || k.toLowerCase().includes(key.toLowerCase())
+        );
+        if (matchingKey) return hairAnalysis[matchingKey];
+        return null;
+      };
 
-    } catch (error: any) {
-      console.error('Analysis error:', error);
-      setError(`Analysis failed: ${error.message}`);
-    } finally {
-      setIsAnalyzing(false);
+      const densityThickness = getHairAnalysisSection("1. Hair Density and Thickness", ["Hair Density and Thickness"]);
+      const scalpHealth = getHairAnalysisSection("2. Scalp Health and Condition", ["Scalp Health and Condition"]);
+      const hairTexture = getHairAnalysisSection("3. Hair Texture and Quality", ["Hair Texture and Quality"]);
+      const potentialIssues = getHairAnalysisSection("4. Potential Issues", ["Potential Issues"]);
+      const growthPatterns = getHairAnalysisSection("5. Hair Growth Patterns", ["Hair Growth Patterns"]);
+      const recommendations = getHairAnalysisSection("6. Recommendations for Improvement", ["Recommendations for Improvement"]);
+
+      // Convert HairAnalysisResult to a format compatible with Report type
+      // Use individual section ratings and severities from the AI response
+      const analysisResult: AnalysisResult = {
+        summary: result.summary || "Hair analysis completed",
+        overallSeverity: result.overallSeverity || 'Medium',
+        parameters: [
+          {
+            category: 'Hair Density and Thickness',
+            rating: densityThickness?.rating ?? ((result.overall_score || 50) / 10), // Use section-specific rating
+            severity: densityThickness?.severity ?? (result.overallSeverity || 'Medium'),
+            description: densityThickness 
+              ? `${densityThickness.density || 'N/A'} ${densityThickness.thickness || 'N/A'}. ${densityThickness.notes || ''}` 
+              : 'Analysis pending'
+          },
+          {
+            category: 'Scalp Health',
+            rating: scalpHealth?.rating ?? ((result.overall_score || 50) / 10),
+            severity: scalpHealth?.severity ?? (result.overallSeverity || 'Medium'),
+            description: scalpHealth 
+              ? `${scalpHealth.condition || 'N/A'}. ${scalpHealth.notes || ''}` 
+              : 'Analysis pending'
+          },
+          {
+            category: 'Hair Texture',
+            rating: hairTexture?.rating ?? ((result.overall_score || 50) / 10),
+            severity: hairTexture?.severity ?? (result.overallSeverity || 'Medium'),
+            description: hairTexture 
+              ? `${hairTexture.texture || 'N/A'} ${hairTexture.quality || 'N/A'}. ${hairTexture.notes || ''}` 
+              : 'Analysis pending'
+          },
+          {
+            category: 'Potential Issues',
+            rating: potentialIssues?.rating ?? ((result.overall_score || 50) / 10),
+            severity: potentialIssues?.severity ?? (result.overallSeverity || 'Medium'),
+            description: potentialIssues?.notes || 'Analysis pending'
+          },
+          {
+            category: 'Growth Patterns',
+            rating: growthPatterns?.rating ?? ((result.overall_score || 50) / 10),
+            severity: growthPatterns?.severity ?? (result.overallSeverity || 'Medium'),
+            description: growthPatterns?.general_growth || 'Analysis pending'
+          },
+          {
+            category: 'Recommendations',
+            rating: recommendations?.rating ?? ((result.overall_score || 50) / 10),
+            severity: recommendations?.severity ?? (result.overallSeverity || 'Medium'),
+            description: recommendations?.notes || 'Analysis pending'
+          }
+        ],
+        routine: {
+          morning: [
+            recommendations?.hydration || 'Morning hair care routine',
+            recommendations?.scalp_care || 'Scalp care routine'
+          ].filter(Boolean),
+          evening: [
+            recommendations?.styling || 'Evening hair care routine',
+            recommendations?.trimming || 'Hair maintenance routine'
+          ].filter(Boolean)
+        }
+      };
+
+      const report: Report = {
+        id: new Date().toISOString(),
+        date: new Date().toLocaleDateString(),
+        result: analysisResult,
+        userData: userDataForApi,
+        faceImages: images,
+      };
+
+      // Save the report to the analysis_history table
+      const { data: savedRecord, error: saveError } = await supabase
+        .from('analysis_history')
+        .insert({
+          user_id: userProfile.id,
+          analysis_result: report,
+          analysis_type: 'hair'
+        })
+        .select()
+        .single();
+      
+      if (saveError) {
+        throw new Error(`Failed to save analysis report: ${saveError.message}`);
+      }
+
+      // Use the saved report data for navigation
+      const finalReport = savedRecord.analysis_result;
+      finalReport.id = savedRecord.id;
+      
+      // Store full hair analysis result for results page
+      const fullHairResult = {
+        ...result,
+        userData: userDataForApi,
+        questionnaireAnswers: questionnaireAnswers
+      };
+      
+      navigate('/hair-analysis-results', { state: { report: finalReport, fullHairResult: fullHairResult } });
+
+    } catch (err) {
+      console.error("❌ Hair analysis failed:", err);
+      
+      let errorMessage = "An unknown error occurred during analysis.";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        
+        // Provide more helpful error messages
+        if (err.message.includes('429') || 
+            err.message.includes('Resource exhausted') || 
+            err.message.includes('rate limit') ||
+            err.message.includes('at capacity')) {
+          errorMessage = "AI service is currently at capacity. Please wait a few minutes and try again. Our API has reached its rate limit for now.";
+        } else if (err.message.includes("API")) {
+          errorMessage = "AI service temporarily unavailable. Please try again in a few moments.";
+        } else if (err.message.includes("image") || err.message.includes("Image")) {
+          errorMessage = "Image processing error. Please capture the photos again.";
+        } else if (err.message.includes("parse") || err.message.includes("JSON")) {
+          errorMessage = "Analysis response error. Please try again.";
+        } else if (err.message.includes("quota") || err.message.includes("limit")) {
+          errorMessage = "Service limit reached. Please try again later.";
+        }
+      }
+      
+      setError(errorMessage);
+      setLocalMode('error');
     }
   };
 
-  const getCapturedCount = () => {
-    return Object.keys(capturedImages).length;
-  };
 
-  const getCurrentViewInfo = () => {
-    const currentView = hairViews.find(view => !capturedImages[view.id]);
-    return currentView || hairViews[0];
-  };
-
-  const getFramePercents = (box: any) => {
-    if (!videoRef.current) return { x: 0, y: 0, width: 0, height: 0 };
-    
-    const video = videoRef.current;
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-    
-    return {
-      x: (box.x / videoWidth) * 100,
-      y: (box.y / videoHeight) * 100,
-      width: (box.width / videoWidth) * 100,
-      height: (box.height / videoHeight) * 100
-    };
-  };
-
-  const getCropRectFromPercents = (percents: any) => {
-    if (!videoRef.current) return { x: 0, y: 0, width: 0, height: 0 };
-    
-    const video = videoRef.current;
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-    
-    return {
-      x: (percents.x / 100) * videoWidth,
-      y: (percents.y / 100) * videoHeight,
-      width: (percents.width / 100) * videoWidth,
-      height: (percents.height / 100) * videoHeight
-    };
-  };
-
-  const checkLighting = () => {
-    if (!videoRef.current) return;
-    
-    const video = videoRef.current;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-    
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-    
-    let totalBrightness = 0;
-    let pixelCount = 0;
-    
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const brightness = (r + g + b) / 3;
-      totalBrightness += brightness;
-      pixelCount++;
+  const renderContent = () => {
+    if (loadingProfile) {
+      return (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
     }
-    
-    const averageBrightness = totalBrightness / pixelCount;
-    
-    if (averageBrightness < 80) {
-      setLightingAdvice("Lighting is too dark. Move to a brighter area.");
-    } else if (averageBrightness > 200) {
-      setLightingAdvice("Lighting is too bright. Move to a more shaded area.");
+
+    switch (localMode) {
+      case 'questionnaire':
+        return (
+          <div className="space-y-4">
+            <HairQuestionnaire
+              userProfile={userProfile}
+              existingAnswers={questionnaireAnswers}
+              onBack={() => navigate('/')}
+              onComplete={async (answers) => {
+                console.log('Hair Questionnaire complete:', answers);
+                setQuestionnaireAnswers(answers);
+                
+                // Save to Supabase profiles table
+                try {
+                  if (user?.id) {
+                    const profileUpdates: any = {
+                      hair_type: answers.hairType,
+                      hair_texture: answers.hairTexture,
+                      hair_thickness: answers.hairThickness,
+                      scalp_condition: answers.scalpCondition,
+                      washing_frequency: answers.washingFrequency,
+                      hair_care_products: answers.hairCareProducts,
+                      chemical_treatments: answers.chemicalTreatments,
+                      heat_styling_frequency: answers.heatStylingFrequency,
+                      stress_level: answers.stressLevel,
+                      water_quality: answers.waterQuality,
+                    };
+
+                    // Also update demographic fields if provided
+                    if (answers.gender) profileUpdates.gender = answers.gender;
+                    if (answers.birthdate) profileUpdates.birthdate = answers.birthdate;
+                    if (answers.city) profileUpdates.city = answers.city;
+                    if (answers.state) profileUpdates.state = answers.state;
+
+                    // Update profiles table
+                    const { error: profileError } = await supabase
+                      .from('profiles')
+                      .update(profileUpdates)
+                      .eq('id', user.id);
+
+                    if (profileError) {
+                      console.error('❌ Failed to update profile with hair questionnaire:', profileError);
+                    } else {
+                      console.log('✅ Saved hair questionnaire answers to profiles table');
+                    }
+
+                    // Also save to questionnaire_history for tracking
+                    const { error: historyError } = await supabase
+                      .from('questionnaire_history')
+                      .insert({
+                        user_id: user.id,
+                        questionnaire_data: answers,
+                        questionnaire_type: 'hair'
+                      });
+
+                    if (historyError) {
+                      console.warn('⚠️ Failed to save hair questionnaire history:', historyError);
     } else {
-      setLightingAdvice("Lighting looks good!");
+                      console.log('✅ Saved hair questionnaire to history');
+                    }
+                  }
+                } catch (e) {
+                  console.error('❌ Error saving hair questionnaire:', e);
+                }
+                
+                // Always proceed to camera after completing questionnaire
+                setLocalMode('camera');
+              }}
+            />
+            {/* Collapsible AI Disclaimer */}
+            <div className="bg-purple-50 border-2 border-purple-200 rounded-xl shadow-md overflow-hidden mt-4">
+            <button
+                type="button"
+                onClick={() => setShowDisclaimer(!showDisclaimer)}
+                className="w-full p-4 flex items-center justify-between hover:bg-purple-100 transition-colors min-h-[48px] text-left"
+                aria-label={showDisclaimer ? "Hide disclaimer" : "Show disclaimer"}
+                aria-expanded={showDisclaimer}
+              >
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                  <h3 className="font-semibold text-purple-900">AI Analysis Disclaimer</h3>
+                </div>
+                {showDisclaimer ? (
+                  <ChevronUp className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                )}
+              </button>
+              <div 
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  showDisclaimer ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="px-4 pb-4 pt-0">
+                  <p className="text-sm text-purple-900 leading-relaxed">
+                    This AI-powered hair analysis is for informational purposes only and is not a substitute for professional medical advice, diagnosis, or treatment. The analysis is based on images and questionnaire responses and may not be 100% accurate. Always consult with a qualified trichologist or healthcare provider for hair concerns or before making significant changes to your hair care routine.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 'camera':
+        return (
+          <HairPhotoCapture onComplete={(images) => handleAnalysis([images.front, images.top])} />
+        );
+      case 'analyzing':
+        return (
+          <div className="flex flex-col items-center justify-center text-center p-8">
+            <LoaderCircle className="w-16 h-16 text-purple-500 animate-spin mb-4" />
+            <h2 className="text-2xl font-bold text-slate-800">Analyzing Your Hair...</h2>
+            <p className="text-slate-600 mt-2">This may take a moment. Our AI is looking at your photos and information.</p>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="text-center p-8 bg-amber-50 border-2 border-amber-200 rounded-xl max-w-md mx-auto">
+            <AlertCircle className="w-16 h-16 text-amber-600 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-amber-900 mb-3">Analysis Temporarily Unavailable</h2>
+            <p className="text-amber-800 mt-2 leading-relaxed">{error || "An error occurred during analysis."}</p>
+            {(error?.includes('rate limit') || error?.includes('capacity') || error?.includes('429')) && (
+              <div className="mt-4 p-3 bg-amber-100 rounded-lg">
+                <p className="text-sm text-amber-900">
+                  💡 <strong>Tip:</strong> Wait 2-3 minutes before trying again. This helps avoid rate limits.
+                </p>
+              </div>
+            )}
+            <button 
+              onClick={() => {
+                setError(null);
+                setLocalMode('questionnaire');
+              }} 
+              className="mt-6 bg-amber-500 text-white font-semibold py-3 px-8 rounded-full hover:bg-amber-600 transition-colors min-h-[48px] min-w-[48px]"
+            >
+              Try Again
+            </button>
+          </div>
+        );
+      default:
+        return null;
     }
   };
-
-  const startLightingCheck = () => {
-    const interval = setInterval(checkLighting, 1000);
-    detectionIntervalRef.current = interval;
-  };
-
-  const stopFaceDetection = () => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
-  };
-
-  // Update video stream when stream changes
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-    }
-  }, [stream]);
-
-  // Cleanup camera stream on component unmount
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-green-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate('/')}
-              aria-label="Go back to home"
-              title="Go back to home"
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-gray-800">Hair Analysis</h1>
-              <p className="text-sm text-gray-500">AI-powered hair health assessment</p>
-            </div>
-            <div className="w-10" />
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-4 py-6">
-        {/* Progress Header */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">Hair Analysis</h2>
-              <p className="text-sm text-gray-600 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                {getCapturedCount() === 3 ? 'Analysis in progress...' : 'Ready to start'}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-gray-800">{getCapturedCount()}/3</div>
-              <div className="text-sm text-gray-600">photos</div>
-            </div>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${(getCapturedCount() / 2) * 100}%` }}
-            ></div>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            {getCapturedCount() === 2 
-              ? 'All photos captured! Analysis in progress...' 
-              : `Capture photos of both areas for complete analysis (${getCapturedCount()}/2).`
-            }
-          </p>
-        </div>
-
-        {/* Hair Capture Views */}
-        <div className="grid grid-cols-1 gap-4 mb-6">
-          {hairViews.map((view) => (
-            <div key={view.id} className="bg-white rounded-2xl p-6 shadow-lg">
-              <div className="flex items-center gap-4 mb-4">
-                <div className={`w-12 h-12 rounded-full ${view.color} flex items-center justify-center text-2xl`}>
-                  {view.icon}
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-800">{view.name}</h3>
-                  <p className="text-sm text-gray-600">{view.description}</p>
-                </div>
-                {capturedImages[view.id] && (
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-white" />
-                  </div>
-                )}
-              </div>
-              
-              {capturedImages[view.id] ? (
-                <div className="relative">
-                  <img
-                    src={capturedImages[view.id]}
-                    alt={`${view.name} captured`}
-                    className="w-full h-32 object-cover rounded-lg"
-                  />
-                  <div className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <CheckCircle className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => startCamera(view.id)}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
-                >
-                  Capture {view.name}
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Analysis Loading */}
-        {isAnalyzing && (
-          <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">Analyzing Your Hair</h3>
-              <p className="text-gray-600">Please wait while we analyze your hair photos...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-              <p className="text-red-800 text-sm">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Tips for Best Results */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Tips for Best Results</h3>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 text-sm">1</span>
-              </div>
-              <span className="text-sm text-gray-700">Clean, dry hair</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 text-sm">2</span>
-              </div>
-              <span className="text-sm text-gray-700">Remove hair accessories</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 text-sm">3</span>
-              </div>
-              <span className="text-sm text-gray-700">Good lighting</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 text-sm">4</span>
-              </div>
-              <span className="text-sm text-gray-700">Stable camera</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleImageUpload}
-        aria-label="Upload image file"
-        title="Upload image file"
-        className="hidden"
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title="Hair Analysis"
+        subtitle="AI-powered hair health assessment"
+        backTo="/"
       />
 
-      {/* Camera Modal */}
-      {showCamera && currentCaptureView && (
-        <div className="fixed inset-0 z-50 bg-black">
-          <div className="relative w-full h-full">
-            {/* Video Element */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }} // Mirror effect
-            />
-            
-            {/* Loading Indicator */}
-            {!stream && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-white text-center">
-                  <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p>Starting camera...</p>
-                </div>
-              </div>
-            )}
-            
-            {/* Camera Controls */}
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center gap-8">
-              {/* Close Button */}
-              <button
-                onClick={stopCamera}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-3 rounded-full transition-colors"
-                aria-label="Close camera"
-                title="Close camera"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              
-              {/* Capture Button */}
-              <button
-                onClick={capturePhoto}
-                className="bg-white hover:bg-gray-100 text-gray-800 p-4 rounded-full transition-colors"
-                aria-label="Capture photo"
-                title="Capture photo"
-              >
-                <Camera className="w-8 h-8" />
-              </button>
-              
-              {/* Upload Button */}
-              <button
-                onClick={() => {
-                  stopCamera();
-                  fileInputRef.current?.setAttribute('data-view', currentCaptureView);
-                  fileInputRef.current?.click();
-                }}
-                className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-3 rounded-full transition-colors"
-                aria-label="Upload from gallery"
-                title="Upload from gallery"
-              >
-                <Upload className="w-6 h-6" />
-              </button>
-            </div>
-            
-            {/* Instructions */}
-            <div className="absolute top-8 left-0 right-0 text-center">
-              <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg inline-block">
-                <p className="text-sm">
-                  Capture {hairViews.find(view => view.id === currentCaptureView)?.name}
-                </p>
-                <p className="text-xs opacity-80 mt-1">
-                  {hairViews.find(view => view.id === currentCaptureView)?.description}
-                </p>
-              </div>
-            </div>
-
-            {/* Lighting Advice */}
-            <div className="absolute top-20 left-0 right-0 text-center">
-              <div className="bg-black bg-opacity-50 text-white px-4 py-2 rounded-lg inline-block">
-                <p className="text-xs">{lightingAdvice}</p>
-              </div>
-            </div>
-          </div>
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {renderContent()}
         </div>
-      )}
-
-      {/* Hidden Canvas for Image Processing */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };

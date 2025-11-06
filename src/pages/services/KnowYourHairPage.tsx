@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Waves, Zap, Sun, Wind, Camera, Sparkles, CheckCircle, Star, Heart, Shield, Droplets, Scissors, ShoppingBag } from "lucide-react";
+import { Waves, Zap, Sun, Wind, Camera, Sparkles, CheckCircle, Star, Heart, Shield, Droplets, Scissors, ShoppingBag } from "lucide-react";
+import { AndroidPageHeader } from "../../components/AndroidBackButton";
 
 const KnowYourHairPage = () => {
   const navigate = useNavigate();
@@ -87,26 +88,12 @@ const KnowYourHairPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
-      {/* Modern Header */}
-      <div className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50 sticky top-0 z-40">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => navigate('/')}
-              aria-label="Go back to home"
-              title="Go back to home"
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="text-center">
-              <h1 className="text-xl font-bold text-gray-800">Know Your Hair</h1>
-              <p className="text-sm text-gray-500">Discover your hair type & care routine</p>
-            </div>
-            <div className="w-10" />
-          </div>
-        </div>
-      </div>
+      {/* Android Material Design Header */}
+      <AndroidPageHeader
+        title="Know Your Hair"
+        subtitle="Discover your hair type & care routine"
+        backTo="/"
+      />
 
       <div className="max-w-md mx-auto px-4 py-6 sm:max-w-lg md:max-w-2xl">
         {/* Hero Section */}

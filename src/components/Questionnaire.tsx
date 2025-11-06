@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle, User, Clock, Cigarette, Droplets, Wind, MapPin, Calendar } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle, User, Clock, Cigarette, Droplets, Wind, MapPin, Calendar, Heart, Sparkles, Sun, Activity, Moon, Sparkle, Briefcase } from "lucide-react";
+import { SKIN_PARAMETERS } from "../lib/constants";
 
 interface QuestionnaireProps {
   onComplete: (answers: QuestionnaireAnswers) => void;
@@ -9,77 +10,155 @@ interface QuestionnaireProps {
 }
 
 export interface QuestionnaireAnswers {
-  profession: string;
-  workingHours: string;
-  smoking: 'smoker' | 'non-smoker';
-  waterQuality: 'excellent' | 'good' | 'average' | 'poor';
-  acUsage: 'yes' | 'no';
+  // New skin-specific questions
+  primarySkinConcern: string[]; // Multiple selection from SKIN_PARAMETERS (excluding Skin Type, Skin Tone, Glow)
+  skinType: 'Dry' | 'Oily' | 'Normal' | 'Sensitive to light and products' | 'Combination';
+  skinTone: 'Fair' | 'Light' | 'Medium' | 'Tan' | 'Dark' | 'Deep';
+  glow: 'Dull' | 'Low Glow' | 'Moderate Glow' | 'High Glow' | 'Radiant';
+  middaySkinFeel: 'Fresh and well hydrated' | 'Smooth and bright' | 'Neither smooth nor rough' | 'Rough and dull';
+  sunscreenUsage: 'Everyday, even if I am not stepping out' | 'Everytime I go out' | 'Only when I have a prolonged sun exposure' | 'I do not apply sunscreen';
+  physicalActivity: 'Regular' | 'Sometimes' | 'Rarely';
+  sleepingHabits: 'Sound Sleep' | 'Moderate Sleep' | 'Disturbed Sleep';
+  skinTreatment: 'Chemical Peels' | 'Laser Treatments' | 'Bleaching' | 'None';
+  // Legacy fields (kept for backward compatibility)
+  profession?: string;
+  workingHours?: string;
+  workStress?: 'Low' | 'Medium' | 'High' | 'Very High';
+  smoking?: 'Non-smoker' | 'Light smoker' | 'Heavy smoker' | 'Former smoker';
+  waterQuality?: 'Hard' | 'Soft';
+  acUsage?: string;
   // Additional demographic fields for missing data
   gender?: 'male' | 'female' | 'other';
   birthdate?: string;
   city?: string;
   state?: string;
-  country?: string;
 }
 
-// Base questions (always asked) - moved outside component to prevent recreation
+// Base questions (always asked) - updated for better Gemini AI accuracy
+// Filter out Skin Type, Skin Tone, and Glow from primary concerns since they are separate questions
+const primarySkinConcernOptions = SKIN_PARAMETERS.filter(
+  param => param !== 'Skin Type' && param !== 'Skin Tone' && param !== 'Glow'
+);
+
 const baseQuestions = [
     {
-      id: 'profession',
-      title: 'What is your profession?',
-      icon: User,
+      id: 'primarySkinConcern',
+      title: 'What Is Your Primary Skin Concern? (Select all that apply)',
+      icon: Heart,
+      options: primarySkinConcernOptions,
+      multiple: true // Flag for multiple selection
+    },
+    {
+      id: 'skinType',
+      title: 'What is your skin type?',
+      icon: Sparkles,
       options: [
-        'Office Worker',
-        'Healthcare Professional',
-        'Teacher/Educator',
-        'Student',
-        'Retail/Service',
-        'Construction/Manual Labor',
-        'Artist/Creative',
-        'Remote Worker',
-        'Other'
+        'Dry',
+        'Oily',
+        'Normal',
+        'Sensitive to light and products',
+        'Combination'
       ]
     },
     {
+      id: 'skinTone',
+      title: 'What is your skin tone?',
+      icon: Sparkles,
+      options: [
+        'Fair',
+        'Light',
+        'Medium',
+        'Tan',
+        'Dark',
+        'Deep'
+      ]
+    },
+    {
+      id: 'glow',
+      title: 'What is your skin glow level?',
+      icon: Sparkle,
+      options: [
+        'Dull',
+        'Low Glow',
+        'Moderate Glow',
+        'High Glow',
+        'Radiant'
+      ]
+    },
+    {
+      id: 'middaySkinFeel',
+      title: 'How does your skin feel like at Midday?',
+      icon: Sparkle,
+      options: [
+        'Fresh and well hydrated',
+        'Smooth and bright',
+        'Neither smooth nor rough',
+        'Rough and dull'
+      ]
+    },
+    {
+      id: 'sunscreenUsage',
+      title: 'How often do you use sunscreen?',
+      icon: Sun,
+      options: [
+        'Everyday, even if I am not stepping out',
+        'Everytime I go out',
+        'Only when I have a prolonged sun exposure',
+        'I do not apply sunscreen'
+      ]
+    },
+    {
+      id: 'physicalActivity',
+      title: 'Physical Activity Or Exercise',
+      icon: Activity,
+      options: [
+        'Regular',
+        'Sometimes',
+        'Rarely'
+      ]
+    },
+    {
+      id: 'sleepingHabits',
+      title: 'Sleeping Habits',
+      icon: Moon,
+      options: [
+        'Sound Sleep',
+        'Moderate Sleep',
+        'Disturbed Sleep'
+      ]
+    },
+    {
+      id: 'skinTreatment',
+      title: 'Skin Treatment',
+      icon: Sparkles,
+      options: [
+        'Chemical Peels',
+        'Laser Treatments',
+        'Bleaching',
+        'None'
+      ]
+    },
+    {
+      id: 'profession',
+      title: 'What is your occupation?',
+      icon: Briefcase,
+      type: 'text'
+    },
+    {
       id: 'workingHours',
-      title: 'What are your working hours?',
+      title: 'What are your regular working hours?',
       icon: Clock,
       options: [
-        '9 AM - 5 PM (Day shift)',
-        '6 AM - 2 PM (Early morning)',
-        '2 PM - 10 PM (Evening)',
-        '10 PM - 6 AM (Night shift)',
+        'Morning shift',
+        'Evening shift',
+        'Night shift',
         'Flexible/Remote',
-        'Part-time',
         'Not working'
       ]
     },
     {
-      id: 'smoking',
-      title: 'Are you a smoker or non-smoker?',
-      icon: Cigarette,
-      options: [
-        'Non-smoker',
-        'Occasional smoker',
-        'Regular smoker',
-        'Former smoker'
-      ]
-    },
-    {
-      id: 'waterQuality',
-      title: 'How is the water quality in your city?',
-      icon: Droplets,
-      options: [
-        'Excellent (Very clean)',
-        'Good (Generally clean)',
-        'Average (Some impurities)',
-        'Poor (Many impurities)',
-        'Not sure'
-      ]
-    },
-    {
       id: 'acUsage',
-      title: 'How many hours per day do you use air conditioning?',
+      title: 'How many hours per day are you in air conditioning?',
       icon: Wind,
       options: [
         'More than 8 hours daily',
@@ -87,6 +166,26 @@ const baseQuestions = [
         '1-3 hours daily',
         'Less than 1 hour daily',
         'Not using AC'
+      ]
+    },
+    {
+      id: 'smoking',
+      title: 'Smoking habits?',
+      icon: Cigarette,
+      options: [
+        'Non-smoker',
+        'Light smoker',
+        'Heavy smoker',
+        'Former smoker'
+      ]
+    },
+    {
+      id: 'waterQuality',
+      title: 'What is the water quality in your city?',
+      icon: Droplets,
+      options: [
+        'Hard',
+        'Soft'
       ]
     }
   ];
@@ -103,7 +202,7 @@ const demographicQuestions = [
       id: 'birthdate',
       title: 'What is your date of birth?',
       icon: Calendar,
-      type: 'date'
+      type: 'text'
     },
     {
       id: 'city',
@@ -116,12 +215,6 @@ const demographicQuestions = [
       title: 'Which state/province do you live in?',
       icon: MapPin,
       type: 'text'
-    },
-    {
-      id: 'country',
-      title: 'Which country do you live in?',
-      icon: MapPin,
-      type: 'text'
     }
   ];
 
@@ -129,14 +222,36 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Partial<QuestionnaireAnswers>>(existingAnswers || {});
 
+  // Keep local answers in sync when existingAnswers arrive/changes
+  useEffect(() => {
+    if (existingAnswers) {
+      // Only set answers if existingAnswers is provided (has actual data)
+      setAnswers(existingAnswers);
+    } else {
+      // Clear answers when existingAnswers is null/undefined (new user)
+      setAnswers({});
+    }
+  }, [existingAnswers]);
+
   // Memoize missing data check to prevent recalculation on every render
-  const missingData = useMemo(() => ({
-    gender: !userProfile?.gender || userProfile?.gender === '' || userProfile?.gender === null,
-    birthdate: (!userProfile?.birthdate && !userProfile?.date_of_birth) || userProfile?.birthdate === '' || userProfile?.date_of_birth === '',
-    city: !userProfile?.city || userProfile?.city === '' || userProfile?.city === null,
-    state: !userProfile?.state || userProfile?.state === '' || userProfile?.state === null,
-    country: !userProfile?.country || userProfile?.country === '' || userProfile?.country === null
-  }), [userProfile]);
+  // Note: missingData values are booleans where true = missing, false = present
+  const missingData = useMemo(() => {
+    const genderMissing = !userProfile?.gender || userProfile?.gender === '' || userProfile?.gender === null || userProfile?.gender === undefined;
+    const birthdateMissing = (!userProfile?.birthdate && !userProfile?.date_of_birth) || 
+                              userProfile?.birthdate === '' || 
+                              userProfile?.date_of_birth === '' ||
+                              (userProfile?.birthdate === null && userProfile?.date_of_birth === null) ||
+                              (userProfile?.birthdate === undefined && userProfile?.date_of_birth === undefined);
+    const cityMissing = !userProfile?.city || userProfile?.city === '' || userProfile?.city === null || userProfile?.city === undefined;
+    const stateMissing = !userProfile?.state || userProfile?.state === '' || userProfile?.state === null || userProfile?.state === undefined;
+    
+    return {
+      gender: genderMissing,
+      birthdate: birthdateMissing,
+      city: cityMissing,
+      state: stateMissing
+    };
+  }, [userProfile]);
 
   const hasMissingData = useMemo(() => Object.values(missingData).some(Boolean), [missingData]);
 
@@ -144,8 +259,16 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
   useEffect(() => {
     console.log('🔍 QUESTIONNAIRE - Checking User Profile Data:');
     console.log('👤 User Profile:', userProfile);
-    console.log('❌ Missing Data:', missingData);
+    console.log('❌ Missing Data (true = missing, false = present):', missingData);
     console.log('📊 Has Missing Data:', hasMissingData);
+    
+    // Show actual field values for debugging
+    console.log('📋 Field Values:', {
+      gender: userProfile?.gender || 'MISSING',
+      birthdate: userProfile?.birthdate || userProfile?.date_of_birth || 'MISSING',
+      city: userProfile?.city || 'MISSING',
+      state: userProfile?.state || 'MISSING'
+    });
     
     if (hasMissingData) {
       const missingFields = Object.entries(missingData)
@@ -168,7 +291,6 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
       if (missingData.birthdate) questions.push(demographicQuestions[1]);
       if (missingData.city) questions.push(demographicQuestions[2]);
       if (missingData.state) questions.push(demographicQuestions[3]);
-      if (missingData.country) questions.push(demographicQuestions[4]);
     }
     
     return questions;
@@ -182,7 +304,6 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
       if (missingData.birthdate) console.log('  ➕ Question added: Birthdate');
       if (missingData.city) console.log('  ➕ Question added: City');
       if (missingData.state) console.log('  ➕ Question added: State');
-      if (missingData.country) console.log('  ➕ Question added: Country');
       console.log(`📊 Total questions to ask: ${allQuestions.length} (${baseQuestions.length} lifestyle + ${allQuestions.length - baseQuestions.length} demographic)`);
     } else {
       console.log(`📊 Total questions to ask: ${allQuestions.length} (lifestyle questions only - all demographic data present)`);
@@ -190,12 +311,32 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
   }, [allQuestions.length, hasMissingData, missingData]);
 
   const currentQuestion = allQuestions[currentStep];
+  const isMultipleSelect = (currentQuestion as any).multiple === true;
 
   const handleAnswer = (answer: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: answer
-    }));
+    if (isMultipleSelect) {
+      // Handle multiple selection
+      const currentAnswers = (answers[currentQuestion.id as keyof QuestionnaireAnswers] as string[]) || [];
+      if (currentAnswers.includes(answer)) {
+        // Deselect if already selected
+        setAnswers(prev => ({
+          ...prev,
+          [currentQuestion.id]: currentAnswers.filter(a => a !== answer)
+        }));
+      } else {
+        // Add to selection
+        setAnswers(prev => ({
+          ...prev,
+          [currentQuestion.id]: [...currentAnswers, answer]
+        }));
+      }
+    } else {
+      // Handle single selection
+      setAnswers(prev => ({
+        ...prev,
+        [currentQuestion.id]: answer
+      }));
+    }
   };
 
   const handleNext = () => {
@@ -204,17 +345,31 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
     } else {
       // Complete questionnaire
       const completeAnswers: QuestionnaireAnswers = {
+        // Required new questions
+        primarySkinConcern: Array.isArray(answers.primarySkinConcern) && answers.primarySkinConcern.length > 0
+          ? answers.primarySkinConcern as string[]
+          : ['Aging'], // Default to one concern if none selected
+        skinType: (answers.skinType as QuestionnaireAnswers['skinType']) || 'Normal',
+        skinTone: (answers.skinTone as QuestionnaireAnswers['skinTone']) || 'Medium',
+        glow: (answers.glow as QuestionnaireAnswers['glow']) || 'Moderate Glow',
+        middaySkinFeel: (answers.middaySkinFeel as QuestionnaireAnswers['middaySkinFeel']) || 'Neither smooth nor rough',
+        sunscreenUsage: (answers.sunscreenUsage as QuestionnaireAnswers['sunscreenUsage']) || 'I do not apply sunscreen',
+        physicalActivity: (answers.physicalActivity as QuestionnaireAnswers['physicalActivity']) || 'Sometimes',
+        sleepingHabits: (answers.sleepingHabits as QuestionnaireAnswers['sleepingHabits']) || 'Moderate Sleep',
+        skinTreatment: (answers.skinTreatment as QuestionnaireAnswers['skinTreatment']) || 'None',
+        // Lifestyle fields
         profession: answers.profession || '',
         workingHours: answers.workingHours || '',
-        smoking: (answers.smoking as 'smoker' | 'non-smoker') || 'non-smoker',
-        waterQuality: (answers.waterQuality as 'excellent' | 'good' | 'average' | 'poor') || 'good',
-        acUsage: (answers.acUsage as 'yes' | 'no') || 'no',
+        acUsage: answers.acUsage || 'Not using AC',
+        smoking: (answers.smoking as QuestionnaireAnswers['smoking']) || 'Non-smoker',
+        waterQuality: (answers.waterQuality as QuestionnaireAnswers['waterQuality']) || 'Hard',
+        // Legacy fields (optional)
+        ...(answers.workStress && { workStress: answers.workStress as QuestionnaireAnswers['workStress'] }),
         // Include demographic data if provided
         ...(answers.gender && { gender: answers.gender as 'male' | 'female' | 'other' }),
         ...(answers.birthdate && { birthdate: answers.birthdate }),
         ...(answers.city && { city: answers.city }),
-        ...(answers.state && { state: answers.state }),
-        ...(answers.country && { country: answers.country })
+        ...(answers.state && { state: answers.state })
       };
       
       console.log('📋 Questionnaire completed with answers:', completeAnswers);
@@ -295,19 +450,36 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
                 className="w-full h-12 bg-gray-50 border border-gray-200 rounded-lg focus:border-karma-green focus:ring-karma-green px-4"
               />
             ) : (
-              currentQuestion.options.map((option) => (
-                <button
-                  key={option}
-                  onClick={() => handleAnswer(option)}
-                  className={`w-full h-12 rounded-lg border-2 transition-all duration-200 text-left px-4 ${
-                    answers[currentQuestion.id as keyof QuestionnaireAnswers] === option
-                      ? 'border-karma-green bg-karma-light-green text-karma-green'
-                      : 'border-gray-200 hover:border-karma-green hover:bg-gray-50'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))
+              currentQuestion.options.map((option) => {
+                const isSelected = isMultipleSelect
+                  ? (answers[currentQuestion.id as keyof QuestionnaireAnswers] as string[])?.includes(option) || false
+                  : answers[currentQuestion.id as keyof QuestionnaireAnswers] === option;
+                
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleAnswer(option)}
+                    className={`w-full h-12 rounded-lg border-2 transition-all duration-200 text-left px-4 flex items-center gap-3 ${
+                      isSelected
+                        ? 'border-karma-green bg-karma-light-green text-karma-green'
+                        : 'border-gray-200 hover:border-karma-green hover:bg-gray-50'
+                    }`}
+                  >
+                    {isMultipleSelect && (
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                        isSelected 
+                          ? 'border-karma-green bg-karma-green' 
+                          : 'border-gray-300 bg-white'
+                      }`}>
+                        {isSelected && (
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                    )}
+                    <span>{option}</span>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
@@ -325,7 +497,12 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
           
           <button
             onClick={handleNext}
-            disabled={!answers[currentQuestion.id as keyof QuestionnaireAnswers]}
+            disabled={
+              isMultipleSelect
+                ? !answers[currentQuestion.id as keyof QuestionnaireAnswers] || 
+                  (answers[currentQuestion.id as keyof QuestionnaireAnswers] as string[])?.length === 0
+                : !answers[currentQuestion.id as keyof QuestionnaireAnswers]
+            }
             className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-karma-green to-green-600 text-white rounded-xl font-semibold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
           >
             {currentStep === allQuestions.length - 1 ? (
@@ -344,9 +521,15 @@ const Questionnaire = ({ onComplete, onBack, userProfile, existingAnswers }: Que
 
         {/* Progress Indicator */}
         <div className="text-center text-sm text-gray-500 mt-2">
-          {answers[currentQuestion.id as keyof QuestionnaireAnswers] 
-            ? '✓ Answer selected - Click Next to continue' 
-            : 'Please select an answer to continue'}
+          {isMultipleSelect ? (
+            (answers[currentQuestion.id as keyof QuestionnaireAnswers] as string[])?.length > 0
+              ? `✓ ${(answers[currentQuestion.id as keyof QuestionnaireAnswers] as string[]).length} concern(s) selected - Click Next to continue`
+              : 'Please select at least one concern to continue'
+          ) : (
+            answers[currentQuestion.id as keyof QuestionnaireAnswers] 
+              ? '✓ Answer selected - Click Next to continue' 
+              : 'Please select an answer to continue'
+          )}
         </div>
       </div>
     </div>

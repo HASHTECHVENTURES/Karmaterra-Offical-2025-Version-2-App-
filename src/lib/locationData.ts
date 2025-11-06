@@ -22,3 +22,4 @@ export const getCountryCodeByName = (countryName: string): string | undefined =>
 	return locationData.countries.find((c: Country) => c.name === countryName)?.code;
 };
 
+
